@@ -97,8 +97,8 @@ def pil_overlay(foreground, background):
 if __name__ == "__main__":
     
     ''' define model name, prediction dataset and model parameters '''
-    model_file = 'Jul30_02-44-11_T-CAMUS1800_V-CAMUS1800_EPOCH_30_LR0.001_BS20_SCL1.pth'
-    data_name = 'CAMUS1800'
+    model_file = 'Jul31_14-56-24_T-CAMUS1800_HM_MA4_V-_EPOCH_30_LR0.001_BS20_SCL1.pth'
+    data_name = 'test_CAMUS1800_HML'
     scaling = 1
     mask_threshold = 0.5
     mid_systole = False
@@ -107,8 +107,8 @@ if __name__ == "__main__":
     checkpoints_dir = 'checkpoints'
     predicitions_dir = 'predictions'
     model_path = path.join(checkpoints_dir, model_file)
-    dir_img = f'data\data_test\imgs_test_{data_name}'
-    dir_mask = f'data\data_test\masks_test_{data_name}'
+    dir_img = f'data\data_test\imgs_{data_name}'
+    dir_mask = f'data\data_test\masks_{data_name}'
     
     ''' create filenames for output '''
     input_files = os.listdir(dir_img)

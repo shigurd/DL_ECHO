@@ -238,7 +238,7 @@ if __name__ == '__main__':
     
     training_parameters = dict (
         data_train_and_validation = [
-            ['CAMUS1800_HM_MA4', '']
+            ['train_CAMUS1800_HM_MA4', '']
             ],
         epochs = [30],
         learning_rate = [0.001],
@@ -253,12 +253,12 @@ if __name__ == '__main__':
     param_values = [v for v in training_parameters.values()]
     for data_train_and_validation, epochs, learning_rate, batch_size, batch_accumulation, img_scale, transfer_learning_path, mid_systole_only in product(*param_values): 
 
-        current_train_imgs_dir = path.join(data_train_dir, f'imgs_train_{data_train_and_validation[0]}')
-        current_train_masks_dir = path.join(data_train_dir, f'masks_train_{data_train_and_validation[0]}')
+        current_train_imgs_dir = path.join(data_train_dir, f'imgs_{data_train_and_validation[0]}')
+        current_train_masks_dir = path.join(data_train_dir, f'masks_{data_train_and_validation[0]}')
         
         if data_train_and_validation[1] != '':
-            current_validate_imgs_dir = path.join(data_validate_dir, f'validate_imgs_{data_train_and_validation[1]}')
-            current_validate_masks_dir = path.join(data_validate_dir, f'validate_masks_{data_train_and_validation[1]}')
+            current_validate_imgs_dir = path.join(data_validate_dir, f'imgs_{data_train_and_validation[1]}')
+            current_validate_masks_dir = path.join(data_validate_dir, f'validate_{data_train_and_validation[1]}')
         else:
             current_validate_imgs_dir = ''
             current_validate_masks_dir = ''
