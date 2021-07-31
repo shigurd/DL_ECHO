@@ -207,7 +207,7 @@ def train_net(net,
         except OSError:
             pass
 
-        # create checkpoint at end of epochs
+        ''' create checkpoint at end of epochs '''
         if epoch + 1 == epochs: 
             torch.save({
                 'epoch': start_epoch + epoch + 1,
@@ -249,7 +249,7 @@ if __name__ == '__main__':
         mid_systole_only = [False]
     )
     
-    # used to train multiple models in succession. add variables to arrays to make more combinations
+    ''' used to train multiple models in succession. add variables to arrays to make more combinations '''
     param_values = [v for v in training_parameters.values()]
     for data_train_and_validation, epochs, learning_rate, batch_size, batch_accumulation, img_scale, transfer_learning_path, mid_systole_only in product(*param_values): 
 
@@ -273,7 +273,7 @@ if __name__ == '__main__':
                      f'\t{n_classes} output channels\n')
 
         net.to(device=device)
-        # faster convolutions, but more memory
+        ''' faster convolutions, but more memory '''
         torch.backends.cudnn.benchmark = True
         
         try:
