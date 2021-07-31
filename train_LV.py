@@ -91,7 +91,7 @@ def train_net(net,
         start_epoch = 0
         train_type = 'EP'
     
-    # dataloader for training and evaluation
+    ''' dataloader for training and evaluation '''
     train = BasicDataset(train_imgs_dir, train_masks_dir, img_scale)
     n_train = len(train)
     train_loader = DataLoader(train, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True)
@@ -100,14 +100,14 @@ def train_net(net,
         val = BasicDataset(validate_imgs_dir, validate_masks_dir, img_scale)
         n_val = len(val)
         val_loader = DataLoader(val, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True, drop_last=True)
-    
-    # make summary writer file with timestamp
-    time_stamp = datetime.now().strftime('%b%d_%H-%M-%S') 
+
+    ''' make summary writer file with timestamp '''
+    time_stamp = datetime.now().strftime('%b%d_%H-%M-%S')
     #hostname = socket.gethostname()
     train_and_val = f'T-{data_train_and_validation[0]}_V-{data_train_and_validation[1]}'
     true_batch_size = batch_size * batch_accumulation
     writer = SummaryWriter(path.join(summary_writer_dir, f'{time_stamp}_{model_name}_{train_and_val}_{train_type}{epochs}_LR{learning_rate}_BS{true_batch_size}_SCL{img_scale}'))
-    
+
     if validation_target != '':
         logging.info(f'''Starting training:
             Training with:      {data_train_and_validation[0]}
@@ -161,13 +161,13 @@ def train_net(net,
 
                 preds = net(imgs)
                 loss = criterion(preds['out'], true_masks)
-                loss_batch += loss.item() #for å kompensere for batch repeat
+                loss_batch += loss.item() # compensates for batch repeat
                 
                 loss.backward()
                 #nn.utils.clip_grad_value_(net.parameters(), 0.1)
                 pbar.update(imgs.shape[0])
                 
-                # only update optimizer after accumulation
+                ''' only update optimizer after accumulation '''
                 if (i + 1) % batch_accumulation == 0:
                     writer.add_scalar('Loss/train', loss_batch / batch_accumulation, global_step)
                     pbar.set_postfix(**{'loss (batch)': loss_batch / batch_accumulation})
@@ -206,8 +206,7 @@ def train_net(net,
             logging.info('Created checkpoint directory')
         except OSError:
             pass
-        
-        
+
         # create checkpoint at end of epochs
         if epoch + 1 == epochs: 
             torch.save({
@@ -217,13 +216,10 @@ def train_net(net,
                 'loss': loss
                 }, path.join(checkpoints_dir, f'{time_stamp}_{train_and_val}_EPOCH_{start_epoch + epoch + 1}_LR{learning_rate}_BS{true_batch_size}_SCL{img_scale}.pth'))
             logging.info(f'Checkpoint {start_epoch + epoch + 1} saved !')
-        
-        '''
-        #save model state uten optim(original kode)
-        torch.save(net.state_dict(),
-                   dir_checkpoint + f'CP_epoch{epoch + 1}_LR_{learning_rate}_BS_{batch_size}_SCALE_{img_scale}_VAL_{val_percent}_RUNTIME_{timestamp}.pth')
-        '''
-            
+
+        ''' save model state without optimizer '''
+        #torch.save(net.state_dict(), dir_checkpoint + f'CP_epoch{epoch + 1}_LR_{learning_rate}_BS_{batch_size}_SCALE_{img_scale}_VAL_{val_percent}_RUNTIME_{timestamp}.pth')
+
     writer.close()
 
 
