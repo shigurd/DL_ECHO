@@ -17,6 +17,7 @@ import statistics
 
 from torchvision.models.segmentation import fcn_resnet50
 
+
 def predict_tensor(net,
                 img_pil,
                 device,
@@ -38,6 +39,7 @@ def predict_tensor(net,
     
     return output
 
+
 def convert_tensor_mask_to_pil(mask_tensor_predicted):
     mask_tensor_predicted = torch.sigmoid(mask_tensor_predicted)
     
@@ -46,6 +48,7 @@ def convert_tensor_mask_to_pil(mask_tensor_predicted):
     mask_pil_predicted = mask_to_image(mask_np_predicted)
     
     return mask_pil_predicted
+
 
 def get_output_filenames(in_file):
     in_files = in_file
@@ -56,16 +59,19 @@ def get_output_filenames(in_file):
         out_files.append("{}_OUT{}".format(pathsplit[0], '.png'))
 
     return out_files
-    
+
+
 def mask_to_image(mask):
     return Image.fromarray((mask * 255).astype(np.uint8))
-    
+
+
 def concat_img(img1, img2):
     newImg = Image.new('RGB', (img1.width, img1.height + img2.height))
     newImg.paste(img1, (0, 0))
     newImg.paste(img2, (0, img1.height))
     return newImg
-    
+
+
 def pil_overlay_predicted_and_gt(mask, pred_img):
     mask = mask.convert('RGB')
     mask = np.array(mask, dtype=np.float) # float for negative values
@@ -83,7 +89,8 @@ def pil_overlay_predicted_and_gt(mask, pred_img):
     plot = Image.fromarray(absolutt_diff, 'RGB')
     #plot.show()
     return plot
-    
+
+
 def pil_overlay(foreground, background):
     img1 = foreground.convert("RGBA")
     img2 = background.convert("RGBA")

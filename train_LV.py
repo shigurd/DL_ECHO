@@ -25,6 +25,7 @@ import socket
 import matplotlib.pyplot as plt
 from PIL import Image
 
+
 def show_preds_heatmap(preds):
     ''' creates heatmaps and orders them for saving in summary_writer '''
     preds_detached = preds.detach().cpu().numpy()
@@ -48,7 +49,8 @@ def show_preds_heatmap(preds):
     numpy_plot = np.stack(numpy_stack)
     
     return numpy_plot
-   
+
+
 def train_net(net,
               device,
               model_name,

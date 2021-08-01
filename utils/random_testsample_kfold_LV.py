@@ -5,6 +5,7 @@ import random
 import shutil 
 import glob
 
+
 def random_sample_split(datasets_dir, data_name, test_percent, kfold, main_dir_output, partition_dir_output):
 
     imgs_path = path.join(datasets_dir, 'imgs', data_name)
@@ -115,6 +116,7 @@ def random_sample_split(datasets_dir, data_name, test_percent, kfold, main_dir_o
                 #shutil.copyfile(s, path.join(f'{partition_output_masks}_{data_name}_K{j+1}', path.basename(s)))
                 for k5 in range(1, kfold + 1):
                         shutil.copyfile(s, path.join(main_dir_output, 'masks', f'{data_name}_K{k5}', path.basename(s)))
+
 
 if __name__ == '__main__':
 

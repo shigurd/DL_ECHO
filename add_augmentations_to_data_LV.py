@@ -6,7 +6,7 @@ import os.path as path
 if __name__ == '__main__':
     
     ''' create augmentations for the entire complete dataset '''
-    '''
+
     dataset_name = 'CAMUS1800_HML'
     n_augmention_copies = 4
 
@@ -14,7 +14,7 @@ if __name__ == '__main__':
     augmentations_dir_output = 'augmentations'
     
     create_augmentations(dataset_name, datasets_dir, n_augmention_copies, augmentations_dir_output)
-    '''
+
     ''' create train data with augmentations '''
 
     #data_names = ['CAMUS1800_HML_K1', 'CAMUS1800_HML_K2', 'CAMUS1800_HML_K3', 'CAMUS1800_HML_K4', 'CAMUS1800_HML_K5']

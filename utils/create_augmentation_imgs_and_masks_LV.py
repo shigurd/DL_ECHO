@@ -8,10 +8,9 @@ import matplotlib.pyplot as plt
 import random
 import os
 import os.path as path
-import sys
 
 
-def Rotate(img, mask):
+def rotate(img, mask):
     
     rotRange = [[10, 21], [350, 361]]
     rangeChoice = random.choice(rotRange)
@@ -22,7 +21,8 @@ def Rotate(img, mask):
     
     return imgrot, maskrot
 
-def Shift(img, mask):
+
+def shift(img, mask):
 
     switch = [-1, 1] #venstre og høyre
     #y = random.randrange(10) * -1 #bare nedover
@@ -35,7 +35,8 @@ def Shift(img, mask):
   
     return imgshi, maskshi
 
-def Zoom(img, mask):
+
+def zoom_in(img, mask):
     
     scale = 0.9 #skalerer opp canvas
     size = img.shape[0]
@@ -50,8 +51,9 @@ def Zoom(img, mask):
     maskzoo = warp(mask, shiftscale, mode='constant')
     
     return imgzoo, maskzoo
-    
-def ZoomOut(img, mask):
+
+
+def zoom_out(img, mask):
     
     scale = 1.1 #skalerer opp canvas
     size = img.shape[0]
@@ -67,7 +69,8 @@ def ZoomOut(img, mask):
     
     return imgshi, maskshi
 
-def Xwarp(img, mask):
+
+def x_warp_in(img, mask):
     
     size = img.shape[0]
     maxScale = 1.1
@@ -80,8 +83,9 @@ def Xwarp(img, mask):
     maskwarx = resize(mask, (size, xWarp), anti_aliasing=True)
     
     return imgwarx, maskwarx
-    
-def XwarpOut(img, mask):
+
+
+def x_warp_out(img, mask):
     
     scale = 1.1 #skalerer opp canvas
     size = img.shape[0]
@@ -93,8 +97,9 @@ def XwarpOut(img, mask):
     maskshi = warp(mask, shiftwarp, mode='constant')
   
     return imgshi, maskshi
-    
-def Ywarp(img, mask):
+
+
+def y_warp_in(img, mask):
     
     size = img.shape[0]
     maxscale = 1.1
@@ -107,41 +112,46 @@ def Ywarp(img, mask):
     
     return imgwary, maskwary
 
-def Noise(img, masknoi):
+
+def noise(img, masknoi):
 
     sigma = 0.1
     imgnoi = random_noise(img, var=sigma**2)
     
     return imgnoi, masknoi
 
-def Blur(img, maskblu):
+
+def blur(img, maskblu):
         
     sigma = 1
     imgblu = gaussian(img, sigma=sigma, multichannel=True)
     
     return imgblu, maskblu
 
-def GammaUp(img, maskgau):
+
+def gamma_up(img, maskgau):
 
     imggau = exposure.adjust_gamma(img, gamma=0.75,gain=1)
     
     return imggau, maskgau
 
-def GammaDown(img, maskgad):
+
+def gamma_down(img, maskgad):
 
     imggad = exposure.adjust_gamma(img, gamma=1.5,gain=1)
     
     return imggad, maskgad
 
 
-def Exposure(img, maskexp):
+def exposure(img, maskexp):
 
     v_min, v_max = np.percentile(img, (0, 95))
     imgexp = exposure.rescale_intensity(img, in_range=(v_min, v_max))
     
     return imgexp, maskexp
 
-def Base(imgname, imgpath, maskname, maskpath):
+
+def base(imgname, imgpath, maskname, maskpath):
 
     img = io.imread(path.join(imgpath, imgname))
     mask = io.imread(path.join(maskpath, maskname))
@@ -182,48 +192,46 @@ def create_augmentations(dataset_name, datasets_dir, n_augmention_copies, augmen
                 img_save_path = path.join(imgs_aug, f'{img_name}_MA{x}{img_ext}')
                 mask_save_path = path.join(masks_aug, f'{img_name}_MA{x}{mask_ext}')
             
-            temp = Base(i, imgs_path, m, masks_path) #åpner bilde. output er 2 bilder, img=0 og mask=1
+            temp = base(i, imgs_path, m, masks_path) #åpner bilde. output er 2 bilder, img=0 og mask=1
             
             choice_list = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
             aug_times = random.randrange(min_aug - 1, max_aug) #antall ganger hvert bilde skal augumenteres
-            
-            
+
             for y in range(aug_times):
                 random_aug = random.randrange(0, len(choice_list))
                 while choice_list[random_aug] == 1:
                     random_aug = random.randrange(0, len(choice_list))
                 choice_list[random_aug] = 1
                 
-                
             if choice_list[0] == 1:
-                temp = ZoomOut(temp[0], temp[1])
+                temp = zoom_out(temp[0], temp[1])
                                     
             if choice_list[1] == 1:
-                temp = Xwarp(temp[0], temp[1])
+                temp = x_warp_in(temp[0], temp[1])
                 
             if choice_list[2] == 1:
-                temp = XwarpOut(temp[0], temp[1])
+                temp = x_warp_out(temp[0], temp[1])
               
             if choice_list[3] == 1:
-                temp = Blur(temp[0], temp[1])
+                temp = blur(temp[0], temp[1])
                 
             if choice_list[4] == 1:
-                temp = Rotate(temp[0], temp[1])
+                temp = rotate(temp[0], temp[1])
             
             if choice_list[5] == 1:
-                temp = Shift(temp[0], temp[1])
+                temp = shift(temp[0], temp[1])
                 
             if choice_list[6] == 1:
-                temp = Zoom(temp[0], temp[1])
+                temp = zoom_in(temp[0], temp[1])
             
             if choice_list[7] == 1:
-                temp = GammaDown(temp[0], temp[1])
+                temp = gamma_down(temp[0], temp[1])
                 
             if choice_list[8] == 1:
-                temp = GammaUp(temp[0], temp[1])
+                temp = gamma_up(temp[0], temp[1])
             
             if choice_list[9] == 1:
-                temp = Noise(temp[0], temp[1])
+                temp = noise(temp[0], temp[1])
             
             size = 256
             width = temp[0].shape[0]
