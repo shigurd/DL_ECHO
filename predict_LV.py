@@ -21,7 +21,6 @@ def predict_tensor(net,
                 img_pil,
                 device,
                 scale_factor=1,
-                out_threshold=0.5,
                 mid_systole=False):
     net.eval()
 
@@ -39,8 +38,7 @@ def predict_tensor(net,
     
     return output
 
-def convert_tensor_mask_to_pil(net, mask_tensor_predicted):
-   
+def convert_tensor_mask_to_pil(mask_tensor_predicted):
     mask_tensor_predicted = torch.sigmoid(mask_tensor_predicted)
     
     mask_np_predicted = mask_tensor_predicted.squeeze().cpu().numpy()
@@ -98,17 +96,17 @@ if __name__ == "__main__":
     
     ''' define model name, prediction dataset and model parameters '''
     model_file = 'Jul31_14-56-24_T-CAMUS1800_HM_MA4_V-_EPOCH_30_LR0.001_BS20_SCL1.pth'
-    data_name = 'test_CAMUS1800_HML'
+    data_name = 'CAMUS1800_HML'
     scaling = 1
     mask_threshold = 0.5
     mid_systole = False
     compare_with_ground_truth = True
     
     checkpoints_dir = 'checkpoints'
-    predicitions_dir = 'predictions'
+    predictions_dir = 'predictions'
     model_path = path.join(checkpoints_dir, model_file)
-    dir_img = f'data\data_test\imgs_{data_name}'
-    dir_mask = f'data\data_test\masks_{data_name}'
+    dir_img = path.join('data', 'test', 'img', data_name)
+    dir_mask = path.join('data', 'test', 'mask', data_name)
     
     ''' create filenames for output '''
     input_files = os.listdir(dir_img)
@@ -129,7 +127,7 @@ if __name__ == "__main__":
     
     ''' make output folder '''
     model_name = model_file.rsplit('.', 1)[0]
-    output_dir = path.join(predicitions_dir, model_name)
+    output_dir = path.join(predictions_dir, model_name)
     os.mkdir(output_dir)
     
     if compare_with_ground_truth == True:
@@ -197,6 +195,3 @@ if __name__ == "__main__":
         avg_dice4 = '{:.4f}'.format(avg_dice)[2:] #runder av dice og fjerner 0.
         os.rename(path.join(output_dir, 'temp.txt'), path.join(output_dir, f'AVGDICE_{avg_dice4}_DICEDATA_{model_name}.txt'))
         os.rename(path.join(output_dir, 'temp1.txt'), path.join(output_dir, f'MEDIAN_{statistics.median(median_list)}_DICEDATA_{model_name}.txt'))
-    
-
-    

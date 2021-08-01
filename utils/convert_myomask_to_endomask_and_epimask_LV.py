@@ -43,8 +43,7 @@ def circle_scanner(center_x, center_y, edges):
     x_coords = np.array([])
     y_coords = np.array([])
 
-    # create coordinates around image outer frame.  to start straigt up, so
-    # "black" area does not wrap
+    # create coordinates around image outer frame. to start straight up, so "black" area does not wrap
     for j in range(128, 1, -1):
         x_coords = np.append(x_coords, 0)
         y_coords = np.append(y_coords, j)
@@ -78,7 +77,7 @@ def circle_scanner(center_x, center_y, edges):
         cv2.destroyAllWindows()
         '''
         
-        #use circle scanner to find black area(mitral valve)
+        # use circle scanner to find black area(mitral valve)
         overlap = cv2.bitwise_and(contour, edges)
         intersections = np.where(overlap != [0])
         #print(intersections)
@@ -95,7 +94,7 @@ def circle_scanner(center_x, center_y, edges):
             consecutive_black = 0
             was_black = False
 
-    #extract scanner intersections that are white
+    # extract scanner intersections that are white
     only_white = np.split(x_coords, [first_black, last_black])
     x_coords = np.append(only_white[2], only_white[0])
     only_white = np.split(y_coords, [first_black, last_black])

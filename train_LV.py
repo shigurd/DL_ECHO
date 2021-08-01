@@ -70,7 +70,7 @@ def train_net(net,
               validation_target=''):
 
     ''' define optimizer and loss '''
-    # optimizer = optim.RMSprop(net.parameters(), lr=learning_rate, weight_decay=1e-8, momentum=0.9)
+    #optimizer = optim.RMSprop(net.parameters(), lr=learning_rate, weight_decay=1e-8, momentum=0.9)
     optimizer = optim.Adam(net.parameters(), lr=learning_rate, weight_decay=1e-8)
     criterion = DiceSoftBCELoss()
 
@@ -226,19 +226,19 @@ def train_net(net,
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
-    data_train_dir = 'data\data_train'
-    data_validate_dir = 'data\data_validate'
+    data_train_dir = path.join('data', 'train')
+    data_validate_dir = path.join('data', 'validate')
     checkpoints_dir = 'checkpoints'
     summary_writer_dir = 'runs'
     
-    # define model_name before running
+    ''' define model_name before running '''
     model_name = 'RES50_DICBCE_ADAM',
     n_classes = 1
     n_channels = 3
     
     training_parameters = dict (
         data_train_and_validation = [
-            ['train_CAMUS1800_HM_MA4', '']
+            ['CAMUS1800_HM_MA4', '']
             ],
         epochs = [30],
         learning_rate = [0.001],
@@ -253,12 +253,12 @@ if __name__ == '__main__':
     param_values = [v for v in training_parameters.values()]
     for data_train_and_validation, epochs, learning_rate, batch_size, batch_accumulation, img_scale, transfer_learning_path, mid_systole_only in product(*param_values): 
 
-        current_train_imgs_dir = path.join(data_train_dir, f'imgs_{data_train_and_validation[0]}')
-        current_train_masks_dir = path.join(data_train_dir, f'masks_{data_train_and_validation[0]}')
+        current_train_imgs_dir = path.join(data_train_dir, 'imgs', data_train_and_validation[0])
+        current_train_masks_dir = path.join(data_train_dir, 'masks', data_train_and_validation[0])
         
         if data_train_and_validation[1] != '':
-            current_validate_imgs_dir = path.join(data_validate_dir, f'imgs_{data_train_and_validation[1]}')
-            current_validate_masks_dir = path.join(data_validate_dir, f'validate_{data_train_and_validation[1]}')
+            current_validate_imgs_dir = path.join(data_validate_dir, 'imgs', data_train_and_validation[1])
+            current_validate_masks_dir = path.join(data_validate_dir, 'masks', data_train_and_validation[1])
         else:
             current_validate_imgs_dir = ''
             current_validate_masks_dir = ''

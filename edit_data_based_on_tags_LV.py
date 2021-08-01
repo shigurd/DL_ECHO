@@ -25,22 +25,21 @@ def remove_tags_in_imgs_and_masks(imgs_dir, imgs_dir_output, masks_dir, masks_di
                 shutil.copyfile(m, path.join(masks_dir_output, path.basename(m)))
             
 
-def remove_tag_from_folder(data_names, tags_to_remove, new_quality, is_kfold, imgs_dir, masks_dir):
+def remove_tag_from_folder(data_names, tags_to_remove, new_quality, is_kfold, input_dir, output_dir):
     
     for data_name in data_names:
-        
-        imgs_dir_path = path.join(imgs_dir, f'imgs_{data_name}')
-        masks_dir_path = path.join(masks_dir, f'masks_{data_name}')
+        imgs_dir_path = path.join(input_dir, 'imgs', data_name)
+        masks_dir_path = path.join(input_dir, 'masks', data_name)
         
         if is_kfold == True:
-            data_type, dataset_name, data_quality, n_k = data_name.rsplit('_', 3)
-            new_name = f'{data_type}_{dataset_name}_{new_quality}_{n_k}'
+            dataset_name, data_quality, n_k = data_name.rsplit('_', 2)
+            new_name = f'{dataset_name}_{new_quality}_{n_k}'
         else:
-            data_type, dataset_name, data_quality = data_name.rsplit('_', 2)
-            new_name = f'{data_type}_{dataset_name}_{new_quality}'
+            dataset_name, data_quality = data_name.rsplit('_', 1)
+            new_name = f'{dataset_name}_{new_quality}'
         
-        imgs_aug_dir_output = path.join(imgs_dir, f'imgs_{new_name}')
-        masks_aug_dir_output = path.join(masks_dir, f'masks_{new_name}')
+        imgs_aug_dir_output = path.join(output_dir, 'imgs', new_name)
+        masks_aug_dir_output = path.join(output_dir, 'masks', new_name)
         os.mkdir(imgs_aug_dir_output)
         os.mkdir(masks_aug_dir_output)
 
@@ -51,24 +50,22 @@ if __name__ == '__main__':
     
     ''' remove tags from train folders '''
     
-    #data_names = ['train_CAMUS1800_HML_K1', 'train_CAMUS1800_HML_K2', 'train_CAMUS1800_HML_K3', 'train_CAMUS1800_HML_K4', 'train_CAMUS1800_HML_K5']
-    data_names = ['train_CAMUS1800_HML']
+    #data_names = ['CAMUS1800_HML_K1', 'CAMUS1800_HML_K2', 'CAMUS1800_HML_K3', 'CAMUS1800_HML_K4', 'CAMUS1800_HML_K5']
+    data_names = ['CAMUS1800_HML']
     is_kfold = False
     tags_to_remove = ['LOW']
     new_data_name = 'HM'
     
-    imgs_train_dir = 'data\data_train'
-    masks_train_dir = 'data\data_train'
-    remove_tag_from_folder(data_names, tags_to_remove, new_data_name, is_kfold, imgs_train_dir, masks_train_dir)
+    input_dir = path.join('data', 'train')
+    output_dir = path.join('data', 'train')
+    remove_tag_from_folder(data_names, tags_to_remove, new_data_name, is_kfold, input_dir, output_dir)
     
     if is_kfold == True:
         ''' remove tags from validate folders '''
         
-        data_names_validate = [f'validate_{data_name.split("_", 1)[-1]}' for data_name in data_names]
+        data_names_validate = [data_name.split("_", 1)[-1] for data_name in data_names]
         
-        imgs_validate_dir = 'data\data_validate'
-        masks_validate_dir = 'data\data_validate'
-        remove_tag_from_folder(data_names_validate, tags_to_remove, new_data_name, is_kfold, imgs_validate_dir, masks_validate_dir)
-   
-    
+        input_dir2 = path.join('data', 'validate')
+        output_dir2 = path.join('data', 'validate')
+        remove_tag_from_folder(data_names_validate, tags_to_remove, new_data_name, is_kfold, input_dir2, output_dir2)
     

@@ -1,6 +1,6 @@
 /runs/
 /predictions/
-/data_augmentations/
+/augmentations/
 /data/
-/complete_datasets/
+/datasets/
 /checkpoints/

@@ -6,25 +6,24 @@ import os.path as path
 if __name__ == '__main__':
     
     ''' create augmentations for the entire complete dataset '''
-    
+    '''
     dataset_name = 'CAMUS1800_HML'
     n_augmention_copies = 4
 
-    datasets_imgs_dir = f'complete_datasets\imgs_{dataset_name}'
-    datasets_masks_dir = f'complete_datasets\masks_{dataset_name}'
-    augmentations_dir_output = 'data_augmentations'
+    datasets_dir = 'datasets'
+    augmentations_dir_output = 'augmentations'
     
-    create_augmentations(dataset_name, datasets_imgs_dir, datasets_masks_dir, n_augmention_copies, augmentations_dir_output)
-    
-
+    create_augmentations(dataset_name, datasets_dir, n_augmention_copies, augmentations_dir_output)
+    '''
     ''' create train data with augmentations '''
-    #data_names = ['train_CAMUS1800_HML_K1', 'train_CAMUS1800_HML_K2', 'train_CAMUS1800_HML_K3', 'train_CAMUS1800_HML_K4', 'train_CAMUS1800_HML_K5']
-    data_names =['train_CAMUS1800_HM']
+
+    #data_names = ['CAMUS1800_HML_K1', 'CAMUS1800_HML_K2', 'CAMUS1800_HML_K3', 'CAMUS1800_HML_K4', 'CAMUS1800_HML_K5']
+    data_names =['CAMUS1800_HM']
     is_kfold = False
-    aug_name = 'augmentations_CAMUS1800_HML_MA4'
-    augmentation_dir = 'data_augmentations'
-    imgs_dir_output = 'data\data_train'
-    masks_dir_output = 'data\data_train'
+    aug_name = 'CAMUS1800_HML_MA4'
+
+    augmentation_dir = 'augmentations'
+    data_dir = path.join('data', 'train')
+    augmentation_data_dir_output = path.join('data', 'train')
     
-    
-    add_aug_to_folder(data_names, aug_name, augmentation_dir, imgs_dir_output, masks_dir_output, is_kfold)
+    add_aug_to_folder(data_names, data_dir, is_kfold, aug_name, augmentation_dir, augmentation_data_dir_output)

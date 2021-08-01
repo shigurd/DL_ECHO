@@ -143,43 +143,44 @@ def Exposure(img, maskexp):
 
 def Base(imgname, imgpath, maskname, maskpath):
 
-    img = io.imread(f'{imgpath}/{imgname}')
-    mask = io.imread(f'{maskpath}/{maskname}')
+    img = io.imread(path.join(imgpath, imgname))
+    mask = io.imread(path.join(maskpath, maskname))
     
     return img, mask
     
 
-def create_augmentations(dataset, imgs_path, masks_path, n_augmention_copies, augmentations_dir_output):
+def create_augmentations(dataset_name, datasets_dir, n_augmention_copies, augmentations_dir_output):
+
+    imgs_path = path.join(datasets_dir, 'imgs', dataset_name)
+    masks_path = path.join(datasets_dir, 'masks', dataset_name)
     
-    augmentations_dir_output_name = path.basename(augmentations_dir_output).rsplit('_', 1)[-1]
+    imgs_aug = path.join(augmentations_dir_output, 'imgs', f'{dataset_name}_MA{n_augmention_copies}')
+    masks_aug = path.join(augmentations_dir_output, 'masks', f'{dataset_name}_MA{n_augmention_copies}')
+    os.mkdir(imgs_aug)
+    os.mkdir(masks_aug)
     
-    imgsAug = path.join(augmentations_dir_output, f'imgs_{augmentations_dir_output_name}_{dataset}_MA{n_augmention_copies}')
-    masksAug = path.join(augmentations_dir_output, f'masks_{augmentations_dir_output_name}_{dataset}_MA{n_augmention_copies}')
-    os.mkdir(imgsAug)
-    os.mkdir(masksAug)
-    
-    imgsFiles = os.listdir(imgs_path)
+    imgs_files = os.listdir(imgs_path)
     
     min_aug = 5 #min aug er -1 så det er egt 4
     max_aug = 10 #max aug -1 så det er egt 9
     
     #husk img_as_ubyte
     
-    for i in imgsFiles:
+    for i in imgs_files:
         
-        imgName = i.rsplit('.', 1)[0]
-        imgExt = '.' + i.rsplit('.', 1)[1]
-        maskExt = '_mask.png'
-        m = imgName + maskExt
+        img_name = i.rsplit('.', 1)[0]
+        img_ext = '.' + i.rsplit('.', 1)[1]
+        mask_ext = '_mask.png'
+        m = img_name + mask_ext
         
         for x in range(1, n_augmention_copies + 1):
             
             if x > 9:
-                img_save_path = f'{imgsAug}/{imgName}_MAX{x - 10}{imgExt}'
-                mask_save_path = f'{masksAug}/{imgName}_MAX{x - 10}{maskExt}'
+                img_save_path = path.join(imgs_aug, f'{img_name}_MAX{x - 10}{img_ext}')
+                mask_save_path = path.join(masks_aug, f'{img_name}_MAX{x - 10}{mask_ext}')
             else:
-                img_save_path = f'{imgsAug}/{imgName}_MA{x}{imgExt}'
-                mask_save_path = f'{masksAug}/{imgName}_MA{x}{maskExt}'
+                img_save_path = path.join(imgs_aug, f'{img_name}_MA{x}{img_ext}')
+                mask_save_path = path.join(masks_aug, f'{img_name}_MA{x}{mask_ext}')
             
             temp = Base(i, imgs_path, m, masks_path) #åpner bilde. output er 2 bilder, img=0 og mask=1
             
@@ -241,12 +242,12 @@ def create_augmentations(dataset, imgs_path, masks_path, n_augmention_copies, au
 
 
 if __name__ == ' __main__':
-    
-    dataset_name = 'CAMUS1800'
+
+    dataset_name = 'CAMUS1800_HML'
     n_augmention_copies = 4
 
-    datasets_imgs_dir = f'complete_datasets\imgs_{data_name}'
-    datasets_masks_dir = f'complete_datasets\masks_{data_name}'
-    
-    create_augmentations(dataset_name, datasets_imgs_dir, datasets_masks_dir, n_augmention_copies)
+    datasets_dir = 'datasets'
+    augmentations_dir_output = 'augmentations'
+
+    create_augmentations(dataset_name, datasets_dir, n_augmention_copies, augmentations_dir_output)
     
