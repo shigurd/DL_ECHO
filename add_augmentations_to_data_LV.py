@@ -25,5 +25,6 @@ if __name__ == '__main__':
     augmentation_dir = 'augmentations'
     data_dir = path.join('data', 'train')
     augmentation_data_dir_output = path.join('data', 'train')
-    
-    add_aug_to_folder(data_names, data_dir, is_kfold, aug_name, augmentation_dir, augmentation_data_dir_output)
+
+    for data_name in data_names:
+        add_aug_to_folder(data_name, data_dir, is_kfold, aug_name, augmentation_dir, augmentation_data_dir_output)

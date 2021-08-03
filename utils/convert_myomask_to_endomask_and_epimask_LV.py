@@ -1,7 +1,9 @@
 import cv2
 import os
+import os.path as path
 from PIL import Image
 import numpy as np
+
 
 def connect_trace_and_fill(coords_list_xy):
     
@@ -25,7 +27,7 @@ def connect_trace_and_fill(coords_list_xy):
     cnts = cnts[0] if len(cnts) == 2 else cnts[1]
 
     for c in cnts:
-        cv2.drawContours(zeros, [c], -1, (255,255,255), -1)
+        cv2.drawContours(zeros, [c], -1, (255, 255, 255), -1)
     #
     '''
     cv2.imshow('trace', zeros)
@@ -34,6 +36,7 @@ def connect_trace_and_fill(coords_list_xy):
     '''
     
     return zeros
+
 
 def circle_scanner(center_x, center_y, edges):
     ext_roi_x = np.array([])
@@ -197,26 +200,46 @@ def get_endocard_epicard(filePath):
     int_roi_filled, ext_roi_filled = circle_scanner(Mx, My, edges)
     # print('Mask Images ready!')
     return int_roi_filled, ext_roi_filled
-    
+
+
+def get_endocard_epicard_from_np(mask_np):
+    mask_np = mask_np.astype('uint8')
+    #cv2.imshow('mask',mask_np)
+    #cv2.waitKey(0)
+
+    edges = cv2.Canny(mask_np, 256, 256)
+
+    #cv2.imshow('edges',edges)
+    #cv2.waitKey(0)
+    #cv2.destroyAllWindows()
+
+    M = cv2.moments(edges)  # find center of mass
+    Mx = int(M["m10"] / M["m00"])
+    My = int(M["m01"] / M["m00"])
+
+    int_roi_filled, ext_roi_filled = circle_scanner(Mx, My, edges)
+    #print('Mask Images ready!')
+    return int_roi_filled, ext_roi_filled
+
 if __name__ == '__main__':
     
-    data_name = "LV_3CH_HM_K1"
-    mask_folder = f'data/train_masks_{data_name}'
+    dataset = 'CAMUS1800_HML'
+    imgs_dir = path.join('datasets', 'imgs', dataset)
+    masks_dir = path.join('datasets', 'masks', dataset)
+
+    epicard_masks_output = path.join('masks', f'{dataset}EPI')
+    endocard_masks_output = path.join('masks', f'{dataset}END')
+
+    os.mkdir(epicard_masks_output)
+    os.mkdir(endocard_masks_output)
     
-    epi_folder = f'{data_name.split("_", 1)[0]}END_{data_name.split("_", 1)[-1]}'
-    end_folder = f'{data_name.split("_", 1)[0]}EPI_{data_name.split("_", 1)[-1]}'
-    
-    os.mkdir(epi_folder)
-    os.mkdir(end_folder)
-    
-    for m in os.listdir(mask_folder):
-        mask_path = os.path.join(mask_folder, m)
+    for m in os.listdir(masks_dir):
+        mask_path = path.join(masks_dir, m)
         
         int_roi_filled, ext_roi_filled = get_endocard_epicard(mask_path)
         
-        int_roi_filled_pil = Image.fromarray(int_roi_filled.astype(np.uint8))
         ext_roi_filled_pil = Image.fromarray(ext_roi_filled.astype(np.uint8))
-        int_roi_filled_pil.save(f'{end_folder}/{m}')
-        ext_roi_filled_pil.save(f'{epi_folder}/{m}')
-        
-        
+        int_roi_filled_pil = Image.fromarray(int_roi_filled.astype(np.uint8))
+
+        ext_roi_filled_pil.save(path.join(epicard_masks_output, m))
+        int_roi_filled_pil.save(path.join(endocard_masks_output, m))
