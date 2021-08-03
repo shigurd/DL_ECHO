@@ -13,7 +13,7 @@ def validate_mean_and_median(net, loader, device):
     n_val = len(loader)  # the number of batch
     
     tot = 0
-    median_list = []
+    median_list_np = np.array([])
     
     with tqdm(total=n_val, desc='Validation round', unit='batch', leave=False) as pbar:
         for batch in loader:
@@ -30,11 +30,10 @@ def validate_mean_and_median(net, loader, device):
             loss_eval = DiceHard()
             loss = loss_eval(preds, true_masks)
             
-            median_list.append(loss.item())
+            median_list_np = np.append(median_list_np, loss.item())
             tot += loss.item()
             pbar.update()
-    
-    median_list_np = np.array(median_list)
+
     median = np.median(median_list_np)
     mean = tot / n_val
     

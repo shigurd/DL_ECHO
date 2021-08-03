@@ -13,8 +13,6 @@ from dataloader_LV import BasicDataset
 from torch.utils.data import DataLoader
 from segmentation_losses_LV import DiceHard
 
-import statistics
-
 from torchvision.models.segmentation import fcn_resnet50
 
 
@@ -108,12 +106,19 @@ if __name__ == "__main__":
     mask_threshold = 0.5
     mid_systole = False
     compare_with_ground_truth = True
-    
-    checkpoints_dir = 'checkpoints'
-    predictions_dir = 'predictions'
-    model_path = path.join(checkpoints_dir, model_file)
-    dir_img = path.join('data', 'test', 'img', data_name)
-    dir_mask = path.join('data', 'test', 'mask', data_name)
+
+    model_path = path.join('checkpoints', model_file)
+    dir_img = path.join('data', 'test', 'imgs', data_name)
+    dir_mask = path.join('data', 'test', 'masks', data_name)
+
+    ''' make output dir '''
+    if compare_with_ground_truth == True:
+        model_name = f'{model_file.rsplit(".", 1)[0]}_VAL'
+    else:
+        model_name = f'{model_file.rsplit(".", 1)[0]}_OUT'
+
+    predictions_output = path.join('predictions', model_name)
+    os.mkdir(predictions_output)
     
     ''' create filenames for output '''
     input_files = os.listdir(dir_img)
@@ -132,19 +137,14 @@ if __name__ == "__main__":
     net.load_state_dict(checkpoint_data['model_state_dict'])
     logging.info("Checkpoint loaded !")
     
-    ''' make output folder '''
-    model_name = model_file.rsplit('.', 1)[0]
-    output_dir = path.join(predictions_dir, model_name)
-    os.mkdir(output_dir)
-    
     if compare_with_ground_truth == True:
-        file = open(path.join(output_dir, f'DICEDATA_{model_name}.txt'), 'w+')
-        file1 = open(path.join(output_dir, 'temp.txt'), 'w+')
-        file2 = open(path.join(output_dir, 'temp1.txt'), 'w+')
+        file = open(path.join(predictions_output, f'DICEDATA_{model_name}.txt'), 'w+')
+        file1 = open(path.join(predictions_output, 'temp.txt'), 'w+')
+        file2 = open(path.join(predictions_output, 'temp1.txt'), 'w+')
         file2.close()
         
-        median_list = []
-        total_dice = 0
+    median_list = np.array([])
+    total_dice = 0
 
     for i, fn in enumerate(input_files):
         out_fn = out_files[i]
@@ -156,12 +156,11 @@ if __name__ == "__main__":
         mask_tensor_predicted = predict_tensor(net=net,
                            img_pil=img_pil,
                            scale_factor=scaling,
-                           out_threshold=mask_threshold,
                            device=device,
                            mid_systole=mid_systole)
         
         ''' converting predicted tensor to pil mask '''
-        mask_pil_predicted = convert_tensor_mask_to_pil(net, mask_tensor_predicted)
+        mask_pil_predicted = convert_tensor_mask_to_pil(mask_tensor_predicted)
         
         ''' if ground truth is available, make overlays and calculate mean and median dice '''
         if compare_with_ground_truth == True:
@@ -174,11 +173,11 @@ if __name__ == "__main__":
             criterion = DiceHard()
             dice_score = criterion(mask_tensor_predicted, mask_tensor_true).item()
             
-            ''' caluculate mean dice and median dice and logging in txt '''
+            ''' calculate mean dice and median dice and logging in txt '''
             total_dice += dice_score 
-            median_list.append(dice_score) 
-            dice4 = '{:.4f}'.format(dice_score) 
-            file.write(f'{dice4} \n') 
+            median_list = np.append(median_list, dice_score)
+            dice4 = '{:.4f}'.format(dice_score)
+            file.write(f'{dice4} \n')
             file1.write(f'{fn} \n') 
             
             ''' plotting overlays between predicted masks and gt masks '''
@@ -187,11 +186,11 @@ if __name__ == "__main__":
             #prediction_on_img = pil_overlay(mask_pil_true.convert('L'), img_pil) 
             
             img_with_comparison = concat_img(img_pil, comparison_masks) 
-            img_with_comparison.save(path.join(output_dir, f'{str(dice4).rsplit(".", 1)[1]}_{out_fn}'))
+            img_with_comparison.save(path.join(predictions_output, f'{str(dice4).rsplit(".", 1)[1]}_{out_fn}'))
         
         else:
             ''' just save predicted masks '''
-            mask_pil_predicted.save(path.join(output_dir, out_fn))
+            mask_pil_predicted.save(path.join(predictions_output, out_fn))
         
         logging.info("Mask saved to {}".format(out_files[i]))
 
@@ -200,5 +199,5 @@ if __name__ == "__main__":
         file1.close()
         avg_dice = total_dice / (i + 1)
         avg_dice4 = '{:.4f}'.format(avg_dice)[2:] #runder av dice og fjerner 0.
-        os.rename(path.join(output_dir, 'temp.txt'), path.join(output_dir, f'AVGDICE_{avg_dice4}_DICEDATA_{model_name}.txt'))
-        os.rename(path.join(output_dir, 'temp1.txt'), path.join(output_dir, f'MEDIAN_{statistics.median(median_list)}_DICEDATA_{model_name}.txt'))
+        os.rename(path.join(predictions_output, 'temp.txt'), path.join(predictions_output, f'AVGDICE_{avg_dice4}_DICEDATA_{model_name}.txt'))
+        os.rename(path.join(predictions_output, 'temp1.txt'), path.join(predictions_output, f'MEDIAN_{np.median(median_list)}_DICEDATA_{model_name}.txt'))
