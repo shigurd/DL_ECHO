@@ -146,58 +146,61 @@ if __name__ == "__main__":
     median_list = np.array([])
     total_dice = 0
 
-    for i, fn in enumerate(input_files):
-        out_fn = out_files[i]
-        logging.info("\nPredicting image {} ...".format(fn))
-        img_pil = Image.open(path.join(dir_img, fn))
-        img_pil = img_pil.convert('RGB')
-        
-        ''' predict_tensor returns logits '''
-        mask_tensor_predicted = predict_tensor(net=net,
-                           img_pil=img_pil,
-                           scale_factor=scaling,
-                           device=device,
-                           mid_systole=mid_systole)
-        
-        ''' converting predicted tensor to pil mask '''
-        mask_pil_predicted = convert_tensor_mask_to_pil(mask_tensor_predicted)
-        
-        ''' if ground truth is available, make overlays and calculate mean and median dice '''
-        if compare_with_ground_truth == True:
-            mask_path_true = path.join(dir_mask, f'{fn.rsplit(".", 1)[0]}_mask.png')
-            mask_pil_true = Image.open(mask_path_true)
-            mask_pil_true = mask_pil_true.convert('L') 
-            mask_np_true = BasicDataset.preprocess(mask_pil_true, scaling)
-            mask_tensor_true = torch.from_numpy(mask_np_true).cuda() # to cuda as this is loaded with cpu
-            
-            criterion = DiceHard()
-            dice_score = criterion(mask_tensor_predicted, mask_tensor_true).item()
-            
-            ''' calculate mean dice and median dice and logging in txt '''
-            total_dice += dice_score 
-            median_list = np.append(median_list, dice_score)
-            dice4 = '{:.4f}'.format(dice_score)
-            file.write(f'{dice4} \n')
-            file1.write(f'{fn} \n') 
-            
-            ''' plotting overlays between predicted masks and gt masks '''
-            comparison_masks = pil_overlay_predicted_and_gt(mask_pil_true, mask_pil_predicted) 
-            ''' plotting overlays between predicted masks and input image '''
-            #prediction_on_img = pil_overlay(mask_pil_true.convert('L'), img_pil) 
-            
-            img_with_comparison = concat_img(img_pil, comparison_masks) 
-            img_with_comparison.save(path.join(predictions_output, f'{str(dice4).rsplit(".", 1)[1]}_{out_fn}'))
-        
-        else:
-            ''' just save predicted masks '''
-            mask_pil_predicted.save(path.join(predictions_output, out_fn))
-        
-        logging.info("Mask saved to {}".format(out_files[i]))
+    with tqdm(total=len(input_files), desc='Predictions', unit='imgs', leave=False) as pbar:
 
-    if compare_with_ground_truth == True:
-        file.close()
-        file1.close()
-        avg_dice = total_dice / (i + 1)
-        avg_dice4 = '{:.4f}'.format(avg_dice)[2:] #runder av dice og fjerner 0.
-        os.rename(path.join(predictions_output, 'temp.txt'), path.join(predictions_output, f'AVGDICE_{avg_dice4}_DICEDATA_{model_name}.txt'))
-        os.rename(path.join(predictions_output, 'temp1.txt'), path.join(predictions_output, f'MEDIAN_{np.median(median_list)}_DICEDATA_{model_name}.txt'))
+        for i, fn in enumerate(input_files):
+            out_fn = out_files[i]
+            logging.info("\nPredicting image {} ...".format(fn))
+            img_pil = Image.open(path.join(dir_img, fn))
+            img_pil = img_pil.convert('RGB')
+
+            ''' predict_tensor returns logits '''
+            mask_tensor_predicted = predict_tensor(net=net,
+                               img_pil=img_pil,
+                               scale_factor=scaling,
+                               device=device,
+                               mid_systole=mid_systole)
+
+            ''' converting predicted tensor to pil mask '''
+            mask_pil_predicted = convert_tensor_mask_to_pil(mask_tensor_predicted)
+
+            ''' if ground truth is available, make overlays and calculate mean and median dice '''
+            if compare_with_ground_truth == True:
+                mask_path_true = path.join(dir_mask, f'{fn.rsplit(".", 1)[0]}_mask.png')
+                mask_pil_true = Image.open(mask_path_true)
+                mask_pil_true = mask_pil_true.convert('L')
+                mask_np_true = BasicDataset.preprocess(mask_pil_true, scaling)
+                mask_tensor_true = torch.from_numpy(mask_np_true).cuda() # to cuda as this is loaded with cpu
+
+                criterion = DiceHard()
+                dice_score = criterion(mask_tensor_predicted, mask_tensor_true).item()
+
+                ''' calculate mean dice and median dice and logging in txt '''
+                total_dice += dice_score
+                median_list = np.append(median_list, dice_score)
+                dice4 = '{:.4f}'.format(dice_score)
+                file.write(f'{dice4} \n')
+                file1.write(f'{fn} \n')
+
+                ''' plotting overlays between predicted masks and gt masks '''
+                comparison_masks = pil_overlay_predicted_and_gt(mask_pil_true, mask_pil_predicted)
+                ''' plotting overlays between predicted masks and input image '''
+                #prediction_on_img = pil_overlay(mask_pil_true.convert('L'), img_pil)
+
+                img_with_comparison = concat_img(img_pil, comparison_masks)
+                img_with_comparison.save(path.join(predictions_output, f'{str(dice4).rsplit(".", 1)[1]}_{out_fn}'))
+
+            else:
+                ''' just save predicted masks '''
+                mask_pil_predicted.save(path.join(predictions_output, out_fn))
+
+            logging.info("Mask saved to {}".format(out_files[i]))
+            pbar.update()
+
+        if compare_with_ground_truth == True:
+            file.close()
+            file1.close()
+            avg_dice = total_dice / (i + 1)
+            avg_dice4 = '{:.4f}'.format(avg_dice)[2:] #runder av dice og fjerner 0.
+            os.rename(path.join(predictions_output, 'temp.txt'), path.join(predictions_output, f'AVGDICE_{avg_dice4}_DICEDATA_{model_name}.txt'))
+            os.rename(path.join(predictions_output, 'temp1.txt'), path.join(predictions_output, f'MEDIAN_{np.median(median_list)}_DICEDATA_{model_name}.txt'))

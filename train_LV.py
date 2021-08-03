@@ -106,7 +106,10 @@ def train_net(net,
     ''' make summary writer file with timestamp '''
     time_stamp = datetime.now().strftime('%b%d_%H-%M-%S')
     #hostname = socket.gethostname()
-    train_and_val = f'T-{data_train_and_validation[0]}_V-{data_train_and_validation[1]}'
+    if validation_target != '':
+        train_and_val = f'T-{data_train_and_validation[0]}_V-NONE'
+    else:
+        train_and_val = f'T-{data_train_and_validation[0]}_V-{data_train_and_validation[1]}'
     true_batch_size = batch_size * batch_accumulation
     writer = SummaryWriter(path.join(summary_writer_dir, f'{time_stamp}_{model_name}_{train_and_val}_{train_type}{epochs}_LR{learning_rate}_BS{true_batch_size}_SCL{img_scale}'))
 
@@ -167,13 +170,13 @@ def train_net(net,
                 
                 loss.backward()
                 #nn.utils.clip_grad_value_(net.parameters(), 0.1)
-                pbar.update(imgs.shape[0])
                 
                 ''' only update optimizer after accumulation '''
                 if (i + 1) % batch_accumulation == 0:
                     writer.add_scalar('Loss/train', loss_batch / batch_accumulation, global_step)
                     pbar.set_postfix(**{'loss (batch)': loss_batch / batch_accumulation})
                     optimizer.step()
+                    pbar.update(imgs.shape[0] * batch_accumulation)
                     
                     global_step += 1
                     loss_batch = 0
@@ -216,7 +219,7 @@ def train_net(net,
                 'model_state_dict': net.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
                 'loss': loss
-                }, path.join(checkpoints_dir, f'{time_stamp}_{train_and_val}_EPOCH_{start_epoch + epoch + 1}_LR{learning_rate}_BS{true_batch_size}_SCL{img_scale}.pth'))
+                }, path.join(checkpoints_dir, f'{time_stamp}_{model_name}_{train_and_val}_{train_type}{epoch + 1}_LR{learning_rate}_BS{true_batch_size}_SCL{img_scale}'))
             logging.info(f'Checkpoint {start_epoch + epoch + 1} saved !')
 
         ''' save model state without optimizer '''
@@ -234,13 +237,13 @@ if __name__ == '__main__':
     summary_writer_dir = 'runs'
     
     ''' define model_name before running '''
-    model_name = 'RES50_DICBCE_ADAM',
+    model_name = 'RES50_DICBCE_ADAM'
     n_classes = 1
     n_channels = 3
     
     training_parameters = dict (
         data_train_and_validation = [
-            ['CAMUS1800_HM_MA4', '']
+            ['CAMUS1800_HM_MA4', 'CAMUS1800_HML_K1']
             ],
         epochs = [30],
         learning_rate = [0.001],
