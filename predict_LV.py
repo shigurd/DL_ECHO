@@ -114,7 +114,7 @@ def endocard_epicard_to_tensor(mask_pil):
 if __name__ == "__main__":
     
     ''' define model name, prediction dataset and model parameters '''
-    model_file = 'Jul31_14-56-24_T-CAMUS1800_HM_MA4_V-_EPOCH_30_LR0.001_BS20_SCL1.pth'
+    model_file = 'Aug04_00-28-06_RES50_DICBCE_ADAM_T-CAMUS1800_HM_MA4_V-_EP30_LR0.001_BS20_SCL1'
     data_name = 'CAMUS1800_HML'
     scaling = 1
     mask_threshold = 0.5
@@ -281,6 +281,6 @@ if __name__ == "__main__":
                 avg_dice_epi = total_dice_epi / (i + 1)
                 avg_dice_epi4 = '{:.4f}'.format(avg_dice_epi)[2:]  # runder av dice og fjerner 0.
                 os.rename(path.join(epi_output, 'temp_epi.txt'),
-                          path.join(epi_output, f'AVGDICE_{avg_dice4}_DICEDATA_{model_name}_EPI.txt'))
+                          path.join(epi_output, f'AVGDICE_{avg_dice_epi4}_DICEDATA_{model_name}_EPI.txt'))
                 os.rename(path.join(epi_output, 'temp_epi1.txt'),
-                          path.join(epi_output, f'MEDIAN_{np.median(median_list)}_DICEDATA_{model_name}_EPI.txt'))
+                          path.join(epi_output, f'MEDIAN_{np.median(median_list_epi)}_DICEDATA_{model_name}_EPI.txt'))
