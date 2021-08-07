@@ -9,7 +9,6 @@ import torch.nn as nn
 from torch import optim
 from tqdm import tqdm
 
-#from models.unet import UNet
 from validation_LV import validate_mean_and_median
 from dataloader_LV import BasicDataset
 from segmentation_losses_LV import DiceSoftBCELoss
@@ -17,6 +16,7 @@ from segmentation_losses_LV import DiceSoftBCELoss
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader
 from torchvision.models.segmentation import fcn_resnet50
+from networks.resnet50_torchvision import fcn_resnet50
 
 from itertools import product 
 from datetime import datetime 
@@ -94,7 +94,7 @@ def train_net(net,
         train_type = 'EP'
     
     ''' dataloader for training and evaluation '''
-    train = BasicDataset(train_imgs_dir, train_masks_dir, img_scale)
+    train = BasicDataset(train_imgs_dir, train_masks_dir, img_scale=img_scale, mid_systole_only=mid_systole_only)
     n_train = len(train)
     train_loader = DataLoader(train, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True)
     
@@ -239,19 +239,19 @@ if __name__ == '__main__':
     ''' define model_name before running '''
     model_name = 'RES50_DICBCE_ADAM'
     n_classes = 1
-    n_channels = 3
+    n_channels = 1
     
     training_parameters = dict (
         data_train_and_validation = [
-            ['CAMUS1800_HM_MA4', 'CAMUS1800_HML_K1']
+            ['CAMUS1800_HM_MA4', '']
             ],
-        epochs = [30],
-        learning_rate = [0.001],
-        batch_size = [10],
-        batch_accumulation = [2],
-        img_scale = [1],
-        transfer_learning_path = [''],
-        mid_systole_only = [False]
+        epochs=[30],
+        learning_rate=[0.001],
+        batch_size=[10],
+        batch_accumulation=[2],
+        img_scale=[1],
+        transfer_learning_path=[''],
+        mid_systole_only=[True]
     )
     
     ''' used to train multiple models in succession. add variables to arrays to make more combinations '''
@@ -271,7 +271,8 @@ if __name__ == '__main__':
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         logging.info(f'Using device {device}')
         
-        net = fcn_resnet50(pretrained=False, progress=True, num_classes=n_classes, aux_loss=None)
+        #net = fcn_resnet50(pretrained=False, progress=True, num_classes=n_classes, aux_loss=None)
+        net = fcn_resnet50(pretrained=False, progress=True, in_channels=n_channels, num_classes=n_classes, aux_loss=None)
 
         logging.info(f'Network:\n'
                      f'\t{n_channels} input channels\n'
