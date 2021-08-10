@@ -5,25 +5,23 @@ import sys
 
 import numpy as np
 import torch
-import torch.nn as nn
 from torch import optim
 from tqdm import tqdm
 
-from validation_LV import validate_mean_and_median
-from dataloader_LV import BasicDataset
-from segmentation_losses_LV import DiceSoftBCELoss
+from utils.validation_LV import validate_mean_and_median
+from utils.dataloader_LV import BasicDataset
+from utils.segmentation_losses_LV import DiceSoftBCELoss
 
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader
-from torchvision.models.segmentation import fcn_resnet50
+
+sys.path.insert(0, '..')
 from networks.resnet50_torchvision import fcn_resnet50
 
 from itertools import product 
-from datetime import datetime 
-import socket 
+from datetime import datetime
 
 import matplotlib.pyplot as plt
-from PIL import Image
 
 
 def show_preds_heatmap(preds):

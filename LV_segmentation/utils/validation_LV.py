@@ -4,7 +4,7 @@ import torch.nn as nn
 from tqdm import tqdm
 import numpy as np
 
-from segmentation_losses_LV import DiceHard
+from .segmentation_losses_LV import DiceHard
 
 def validate_mean_and_median(net, loader, device):
     # Hard dice is used for evaluation

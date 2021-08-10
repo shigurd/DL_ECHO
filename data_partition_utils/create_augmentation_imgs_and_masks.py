@@ -10,7 +10,7 @@ import os
 import os.path as path
 
 
-def rotate(img, mask):
+def my_rotate(img, mask):
     
     rotRange = [[10, 21], [350, 361]]
     rangeChoice = random.choice(rotRange)
@@ -22,7 +22,7 @@ def rotate(img, mask):
     return imgrot, maskrot
 
 
-def shift(img, mask):
+def my_shift(img, mask):
 
     switch = [-1, 1] #venstre og høyre
     #y = random.randrange(10) * -1 #bare nedover
@@ -36,7 +36,7 @@ def shift(img, mask):
     return imgshi, maskshi
 
 
-def zoom_in(img, mask):
+def my_zoom_in(img, mask):
     
     scale = 0.9 #skalerer opp canvas
     size = img.shape[0]
@@ -53,7 +53,7 @@ def zoom_in(img, mask):
     return imgzoo, maskzoo
 
 
-def zoom_out(img, mask):
+def my_zoom_out(img, mask):
     
     scale = 1.1 #skalerer opp canvas
     size = img.shape[0]
@@ -70,7 +70,7 @@ def zoom_out(img, mask):
     return imgshi, maskshi
 
 
-def x_warp_in(img, mask):
+def my_x_warp_in(img, mask):
     
     size = img.shape[0]
     maxScale = 1.1
@@ -85,7 +85,7 @@ def x_warp_in(img, mask):
     return imgwarx, maskwarx
 
 
-def x_warp_out(img, mask):
+def my_x_warp_out(img, mask):
     
     scale = 1.1 #skalerer opp canvas
     size = img.shape[0]
@@ -99,7 +99,7 @@ def x_warp_out(img, mask):
     return imgshi, maskshi
 
 
-def y_warp_in(img, mask):
+def my_y_warp_in(img, mask):
     
     size = img.shape[0]
     maxscale = 1.1
@@ -113,7 +113,7 @@ def y_warp_in(img, mask):
     return imgwary, maskwary
 
 
-def noise(img, masknoi):
+def my_noise(img, masknoi):
 
     sigma = 0.1
     imgnoi = random_noise(img, var=sigma**2)
@@ -121,7 +121,7 @@ def noise(img, masknoi):
     return imgnoi, masknoi
 
 
-def blur(img, maskblu):
+def my_blur(img, maskblu):
         
     sigma = 1
     imgblu = gaussian(img, sigma=sigma, multichannel=True)
@@ -129,21 +129,21 @@ def blur(img, maskblu):
     return imgblu, maskblu
 
 
-def gamma_up(img, maskgau):
+def my_gamma_up(img, maskgau):
 
     imggau = exposure.adjust_gamma(img, gamma=0.75,gain=1)
     
     return imggau, maskgau
 
 
-def gamma_down(img, maskgad):
+def my_gamma_down(img, maskgad):
 
     imggad = exposure.adjust_gamma(img, gamma=1.5,gain=1)
     
     return imggad, maskgad
 
 
-def exposure(img, maskexp):
+def my_exposure(img, maskexp):
 
     v_min, v_max = np.percentile(img, (0, 95))
     imgexp = exposure.rescale_intensity(img, in_range=(v_min, v_max))
@@ -151,7 +151,7 @@ def exposure(img, maskexp):
     return imgexp, maskexp
 
 
-def base(imgname, imgpath, maskname, maskpath):
+def my_base(imgname, imgpath, maskname, maskpath):
 
     img = io.imread(path.join(imgpath, imgname))
     mask = io.imread(path.join(maskpath, maskname))
@@ -192,7 +192,7 @@ def create_augmentations(dataset_name, datasets_dir, n_augmention_copies, augmen
                 img_save_path = path.join(imgs_aug, f'{img_name}_MA{x}{img_ext}')
                 mask_save_path = path.join(masks_aug, f'{img_name}_MA{x}{mask_ext}')
             
-            temp = base(i, imgs_path, m, masks_path) #åpner bilde. output er 2 bilder, img=0 og mask=1
+            temp = my_base(i, imgs_path, m, masks_path) #åpner bilde. output er 2 bilder, img=0 og mask=1
             
             choice_list = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
             aug_times = random.randrange(min_aug - 1, max_aug) #antall ganger hvert bilde skal augumenteres
@@ -204,34 +204,34 @@ def create_augmentations(dataset_name, datasets_dir, n_augmention_copies, augmen
                 choice_list[random_aug] = 1
                 
             if choice_list[0] == 1:
-                temp = zoom_out(temp[0], temp[1])
+                temp = my_zoom_out(temp[0], temp[1])
                                     
             if choice_list[1] == 1:
-                temp = x_warp_in(temp[0], temp[1])
+                temp = my_x_warp_in(temp[0], temp[1])
                 
             if choice_list[2] == 1:
-                temp = x_warp_out(temp[0], temp[1])
+                temp = my_x_warp_out(temp[0], temp[1])
               
             if choice_list[3] == 1:
-                temp = blur(temp[0], temp[1])
+                temp = my_blur(temp[0], temp[1])
                 
             if choice_list[4] == 1:
-                temp = rotate(temp[0], temp[1])
+                temp = my_rotate(temp[0], temp[1])
             
             if choice_list[5] == 1:
-                temp = shift(temp[0], temp[1])
+                temp = my_shift(temp[0], temp[1])
                 
             if choice_list[6] == 1:
-                temp = zoom_in(temp[0], temp[1])
+                temp = my_zoom_in(temp[0], temp[1])
             
             if choice_list[7] == 1:
-                temp = gamma_down(temp[0], temp[1])
+                temp = my_gamma_down(temp[0], temp[1])
                 
             if choice_list[8] == 1:
-                temp = gamma_up(temp[0], temp[1])
+                temp = my_gamma_up(temp[0], temp[1])
             
             if choice_list[9] == 1:
-                temp = noise(temp[0], temp[1])
+                temp = my_noise(temp[0], temp[1])
             
             size = 256
             width = temp[0].shape[0]

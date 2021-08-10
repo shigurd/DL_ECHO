@@ -1,9 +1,11 @@
 import os.path as path
-from utils.random_testsample_kfold_LV import random_sample_split
+import sys
+sys.path.insert(0, '..')
+from data_partition_utils.random_testsample_kfold import random_sample_split
 
 
 if __name__ == '__main__':
-    
+
     ''' partition of complete dataset into test and train '''
 
     data_name = 'CAMUS1800_HML'

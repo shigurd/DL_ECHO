@@ -56,8 +56,8 @@ if __name__ == '__main__':
     tags_to_remove = ['LOW']
     new_data_name = 'HM'
     
-    input_dir = path.join('data', 'train')
-    output_dir = path.join('data', 'train')
+    input_dir = path.join('../LV_segmentation/data', 'train')
+    output_dir = path.join('../LV_segmentation/data', 'train')
     remove_tag_from_folder(data_names, tags_to_remove, new_data_name, is_kfold, input_dir, output_dir)
     
     if is_kfold == True:
@@ -65,7 +65,7 @@ if __name__ == '__main__':
         
         data_names_validate = [data_name.split("_", 1)[-1] for data_name in data_names]
         
-        input_dir2 = path.join('data', 'validate')
-        output_dir2 = path.join('data', 'validate')
+        input_dir2 = path.join('../LV_segmentation/data', 'validate')
+        output_dir2 = path.join('../LV_segmentation/data', 'validate')
         remove_tag_from_folder(data_names_validate, tags_to_remove, new_data_name, is_kfold, input_dir2, output_dir2)
     
