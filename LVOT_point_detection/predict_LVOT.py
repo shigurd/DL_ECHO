@@ -1,20 +1,18 @@
 import logging
 import os
 import os.path as path
-import sys
 
 import numpy as np
 import torch
 from PIL import Image
 from tqdm import tqdm
 
-from utils.dataloader_LV import BasicDataset
-from utils.convert_myomask_to_endomask_and_epimask_LV import get_endocard_epicard_from_np
-from utils.segmentation_losses_LV import DiceHard
+from LV_segmentation.utils.dataloader_LV import BasicDataset
+from utils.convert_myomask_to_endomask_and_epimask_LVOT import get_endocard_epicard_from_np
+from LV_segmentation.utils.segmentation_losses_LV import DiceHard
 
-#from torchvision.models.segmentation import fcn_resnet50
-sys.path.insert(0, '..')
-from networks.resnet50_torchvision import fcn_resnet50
+from torchvision.models.segmentation import fcn_resnet50
+
 
 def predict_tensor(net,
                 img_pil,
@@ -114,10 +112,8 @@ def endocard_epicard_to_tensor(mask_pil):
 if __name__ == "__main__":
     
     ''' define model name, prediction dataset and model parameters '''
-    model_file = 'Aug11_01-09-50_RES50_DICBCE_ADAM_T-CAMUS1800_HM_MA4_V-_EP30_LR0.001_BS20_SCL1'
+    model_file = 'Aug04_00-28-06_RES50_DICBCE_ADAM_T-CAMUS1800_HM_MA4_V-_EP30_LR0.001_BS20_SCL1'
     data_name = 'CAMUS1800_HML'
-    n_channels = 1
-    n_classes = 1
     scaling = 1
     mask_threshold = 0.5
     mid_systole = False
@@ -142,7 +138,7 @@ if __name__ == "__main__":
     out_files = get_output_filenames(input_files)
     
     ''' define dataloader and network settings '''
-    net = fcn_resnet50(pretrained=False, progress=True, in_channels=n_channels, num_classes=n_classes, aux_loss=None)
+    net = fcn_resnet50(pretrained=False, progress=True, num_classes=1, aux_loss=None)
     logging.info("Loading model {}".format(model_path))
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')

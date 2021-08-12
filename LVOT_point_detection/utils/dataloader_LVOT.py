@@ -10,11 +10,10 @@ from PIL import Image
 
 
 class BasicDataset(Dataset):
-    def __init__(self, imgs_dir, masks_dir, img_scale=1, mid_systole_only=False):
+    def __init__(self, imgs_dir, masks_dir, img_scale=1):
         self.imgs_dir = imgs_dir
         self.masks_dir = masks_dir
         self.scale = img_scale
-        self.mid_systole = mid_systole_only
         assert 0 < img_scale <= 1, 'Scale must be between 0 and 1'
 
         self.ids = [splitext(file)[0] for file in listdir(imgs_dir)]
@@ -43,7 +42,7 @@ class BasicDataset(Dataset):
 
         return img_trans
 
-    ''' used with hardcoded 3 in_channel torchvision resnet50. more or less deprecated as a result of the edited resnet50 '''
+    ''' used with hardcoded 3 in_channel torchvision resnet50 '''
     @classmethod
     def convert_to_3ch(cls, np_img, mid_systole):
 
@@ -57,36 +56,51 @@ class BasicDataset(Dataset):
         return np_img
 
     @classmethod
-    def extract_midsystole(cls, np_img, mid_systole):
-        if np_img.shape[0] != 1:
-            if mid_systole == True:
-                np_img = np_img[1, :, :]  # 0 frame before, 1 midsystole, 2 frame after
-                np_img = np.expand_dims(np_img, axis=0)
+    def add_cc_channel(cls, np_img):
 
-        return np_img
+        x_size = np_img.shape[-1]
+        y_size = np_img.shape[-2]
+
+        cc_x = np.zeros((y_size, x_size))
+        cc_y = np.zeros((y_size, x_size))
+
+        for p in range(y_size):
+            cc_y[p, :] = (p + 1) / y_size
+
+        for j in range(x_size):
+            cc_x[:, j] = (j + 1) / x_size
+
+        cc_y = np.expand_dims(cc_y, axis=0)
+        cc_x = np.expand_dims(cc_x, axis=0)
+        img = np.concatenate((np_img, cc_y, cc_x), axis=0)
+        return img
 
     def __getitem__(self, i):
         idx = self.ids[i]
         mask_file = glob(path.join(self.masks_dir, idx) + '*')
         img_file = glob(path.join(self.imgs_dir, idx) + '*')
 
-        assert len(mask_file) == 1, \
-            f'Either no image or multiple masks found for the ID {idx}: {mask_file}'
+        assert len(mask_file) == 2, \
+            f'Either only one mask found or more than 2 masks found {idx}: {mask_file}'
         assert len(img_file) == 1, \
             f'Either no image or multiple images found for the ID {idx}: {img_file}'
-        mask = Image.open(mask_file[0])
-        mask = mask.convert('L')
+
+        mask_i = Image.open(mask_file[0])
+        mask_i = mask_i.convert('L')
+        mask_s = Image.open(mask_file[1])
+        mask_s = mask_s.convert('L')
         img = Image.open(img_file[0])
 
-        assert img.size == mask.size, \
-            f'Image {idx} and mask should be the same size, but are img: {img.size} and mask: {mask.size}'
+        assert img.size == mask_i.size and img.size == mask_s.size, \
+            f'Image {idx} and mask_i and mask_s should be the same size, but are img: {img.size} and mask_i: {mask_i.size} and mask_s: {mask_s.size}'
 
         img = self.preprocess(img, self.scale)
-        img = self.extract_midsystole(img, self.mid_systole)
-        mask = self.preprocess(mask, self.scale)
+        mask_i = self.preprocess(mask_i, self.scale)
+        mask_s = self.preprocess(mask_s, self.scale)
 
         return {
             'image': torch.from_numpy(img).type(torch.FloatTensor),
-            'mask': torch.from_numpy(mask).type(torch.FloatTensor)
+            'mask_i': torch.from_numpy(mask_i).type(torch.FloatTensor),
+            'mask_s': torch.from_numpy(mask_s).type(torch.FloatTensor)
         }
 

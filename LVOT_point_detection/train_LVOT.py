@@ -8,14 +8,13 @@ import torch
 from torch import optim
 from tqdm import tqdm
 
-from utils.validation_LV import validate_mean_and_median
-from utils.dataloader_LV import BasicDataset
-from utils.segmentation_losses_LV import DiceSoftBCELoss
+from utils.validation_LVOT import validate_mean_and_median
+from utils.dataloader_LVOT import BasicDataset
+from utils.segmentation_losses_LVOT import DiceSoftBCELoss
 
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader
 
-#from torchvision.models.segmentation import fcn_resnet50
 sys.path.insert(0, '..')
 from networks.resnet50_torchvision import fcn_resnet50
 
