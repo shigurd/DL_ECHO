@@ -5,7 +5,9 @@ import torch.nn.functional as F
 
 import numpy as np
 
-# all loss functions use logits as input
+from scipy.ndimage import distance_transform_edt
+
+''' all loss functions use logits as input '''
 
 class DiceSoftLoss(nn.Module):
     def __init___(self, smooth=1):

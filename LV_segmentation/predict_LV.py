@@ -24,7 +24,7 @@ def predict_tensor(net,
     net.eval()
 
     img_np = BasicDataset.preprocess(img_pil, scale_factor)
-    img_np = BasicDataset.convert_to_3ch(img_np, mid_systole)
+    img_np = BasicDataset.extract_midsystole(img_np, mid_systole)
     
     img_tensor = torch.from_numpy(img_np)
 
@@ -114,13 +114,13 @@ def endocard_epicard_to_tensor(mask_pil):
 if __name__ == "__main__":
     
     ''' define model name, prediction dataset and model parameters '''
-    model_file = 'Aug11_01-09-50_RES50_DICBCE_ADAM_T-CAMUS1800_HM_MA4_V-_EP30_LR0.001_BS20_SCL1'
+    model_file = 'Aug13_00-08-11_RES50_DICBCE_ADAM_T-CAMUS1800_HM_MA4_V-_EP30_LR0.001_BS20_SCL1.pth'
     data_name = 'CAMUS1800_HML'
     n_channels = 1
     n_classes = 1
     scaling = 1
     mask_threshold = 0.5
-    mid_systole = False
+    mid_systole = True
     compare_with_ground_truth = True
     convert_to_epicard_and_endocard = True
 
