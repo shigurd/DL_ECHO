@@ -7,7 +7,7 @@ import numpy as np
 from .segmentation_losses_LV import DiceHard
 
 def validate_mean_and_median(net, loader, device):
-    # Hard dice is used for evaluation
+    ''' hard dice is used for evaluation '''
     net.eval()
     mask_type = torch.float32 #if net.output_channels == 1 else torch.long
     n_val = len(loader)  # the number of batch

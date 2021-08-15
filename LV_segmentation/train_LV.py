@@ -183,7 +183,7 @@ def train_net(net,
                     # validates every 10% of the epoch
                     if global_step % ((n_train / 10) // true_batch_size) == 0 and validation_target != '':
                         
-                        # show prediction in heatmap format 
+                        ''' show prediction in heatmap format '''
                         preds_heatmap = show_preds_heatmap(preds['out'])
                         
                         for tag, value in net.named_parameters():
