@@ -8,7 +8,7 @@ if __name__ == '__main__':
     
     ''' create augmentations for the entire complete dataset '''
 
-    dataset_name = 'CAMUS1800_HML'
+    dataset_name = 'AVA1314Y1_HML'
     n_augmention_copies = 4
 
     datasets_dir = 'datasets'
@@ -17,7 +17,7 @@ if __name__ == '__main__':
     create_augmentations(dataset_name, datasets_dir, n_augmention_copies, augmentations_dir_output)
 
     ''' create train data with augmentations '''
-
+    '''
     #data_names = ['CAMUS1800_HML_K1', 'CAMUS1800_HML_K2', 'CAMUS1800_HML_K3', 'CAMUS1800_HML_K4', 'CAMUS1800_HML_K5']
     data_names =['CAMUS1800_HM']
     is_kfold = False
@@ -29,3 +29,4 @@ if __name__ == '__main__':
 
     for data_name in data_names:
         add_aug_to_folder(data_name, data_dir, is_kfold, aug_name, augmentation_dir, augmentation_data_dir_output)
+    '''

@@ -8,6 +8,20 @@ import matplotlib.pyplot as plt
 import random
 import os
 import os.path as path
+from glob import glob
+
+def get_img_with_corresponding_masks(imgs_dir, masks_dir, masks_ext):
+    for i in os.listdir(imgs_dir):
+        file_id = i.rsplit('.', 1)[0]
+        img_path = path.join(imgs_dir, i)
+        masks_paths = glob(path.join(masks_dir, file_id) + '*')
+
+
+
+class MyAugmentations():
+    def __init__(self, img_path, masks_paths):
+        self.img = io.imread(img_path)
+        self.masks = [io.imread(mask_path) for mask_path in masks_paths]
 
 
 def my_rotate(img, mask):

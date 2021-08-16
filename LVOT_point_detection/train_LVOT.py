@@ -252,7 +252,7 @@ if __name__ == '__main__':
     
     training_parameters = dict (
         data_train_and_validation = [
-            ['AVA1314Y1_HML_K1', 'AVA1314Y1_HML_K1']
+            ['AVA1314Y1_HML', '']
             ],
         epochs=[30],
         learning_rate=[0.001],
