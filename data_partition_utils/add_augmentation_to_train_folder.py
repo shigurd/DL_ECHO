@@ -2,13 +2,14 @@ import os
 import os.path as path
 import shutil 
 import glob
+from tqdm import tqdm
 
 
 def add_aug_to_folder(data_name, data_dir, is_kfold, aug_name, augmentation_dir, augmentation_data_dir_output):
 
     aug_name_tag = aug_name.rsplit('_', 1)[-1]
-    imgs_path = path.join(data_dir, 'imgs', data_name)
-    masks_path = path.join(data_dir, 'masks', data_name)
+    imgs_dir_path = path.join(data_dir, 'imgs', data_name)
+    masks_dir_path = path.join(data_dir, 'masks', data_name)
     imgs_aug_path = path.join(augmentation_dir, 'imgs', aug_name)
     masks_aug_path = path.join(augmentation_dir, 'masks', aug_name)
 
@@ -23,32 +24,35 @@ def add_aug_to_folder(data_name, data_dir, is_kfold, aug_name, augmentation_dir,
     os.mkdir(imgs_dir_output_path)
     os.mkdir(masks_dir_output_path)
 
-    imgs_files = os.listdir(imgs_path)
+    imgs_files = os.listdir(imgs_dir_path)
 
-    for f in imgs_files:
-        ''' copy imgs '''
-        f_org = f'{f.rsplit(".", 1)[0]}_ORG.png'
-        shutil.copyfile(os.path.join(imgs_path, f), os.path.join(imgs_dir_output_path, f_org))
+    with tqdm(total=len(imgs_files), desc='Moving augmentations', unit='imgs and masks', leave=False) as pbar:
 
-        filename = f.rsplit('.', 1)[0]
-        filename = filename.rsplit("_", 1)[0]
+        for f in imgs_files:
+            ''' copy imgs '''
+            f_org = f'{f.rsplit(".", 1)[0]}_ORG.png'
+            shutil.copyfile(path.join(imgs_dir_path, f), path.join(imgs_dir_output_path, f_org))
 
-        ''' copy masks '''
-        masks = glob.glob(masks_path + '/' + filename + '*')
-        for m in masks:
-            m_org = f'{m.rsplit("_", 1)[0]}_ORG_mask.png'
-            shutil.copyfile(m, os.path.join(masks_dir_output_path, os.path.basename(m_org)))
+            filename = f.rsplit('.', 1)[0]
+            filename = filename.rsplit("_", 1)[0]
 
-        ''' copy img augs '''
-        img_augs = glob.glob(imgs_aug_path + '/' + filename + '*')
-        for ia in img_augs:
-            shutil.copyfile(ia, os.path.join(imgs_dir_output_path, os.path.basename(ia)))
+            ''' copy masks '''
+            masks = glob.glob(masks_dir_path + '/' + filename + '*')
+            for m in masks:
+                m_org = f'{m.rsplit("_", 1)[0]}_ORG_mask.png'
+                shutil.copyfile(m, os.path.join(masks_dir_output_path, os.path.basename(m_org)))
 
-        ''' copy mask augs '''
-        mask_augs = glob.glob(masks_aug_path + '/' + filename + '*')
-        for ma in mask_augs:
-            shutil.copyfile(ma, os.path.join(masks_dir_output_path, os.path.basename(ma)))
+            ''' copy img augs '''
+            img_augs = glob.glob(imgs_aug_path + '/' + filename + '*')
+            for ia in img_augs:
+                shutil.copyfile(ia, os.path.join(imgs_dir_output_path, os.path.basename(ia)))
 
+            ''' copy mask augs '''
+            mask_augs = glob.glob(masks_aug_path + '/' + filename + '*')
+            for ma in mask_augs:
+                shutil.copyfile(ma, os.path.join(masks_dir_output_path, os.path.basename(ma)))
+
+            pbar.update()
 
 
 if __name__ == '__main__':
