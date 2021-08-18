@@ -39,7 +39,8 @@ def add_aug_to_folder(data_name, data_dir, is_kfold, aug_name, augmentation_dir,
             ''' copy masks '''
             masks = glob.glob(masks_dir_path + '/' + filename + '*')
             for m in masks:
-                m_org = f'{m.rsplit("_", 1)[0]}_ORG_mask.png'
+                m_ext = m.rsplit('_', 1)[-1]
+                m_org = f'{m.rsplit("_", 1)[0]}_ORG_{m_ext}'
                 shutil.copyfile(m, os.path.join(masks_dir_output_path, os.path.basename(m_org)))
 
             ''' copy img augs '''
