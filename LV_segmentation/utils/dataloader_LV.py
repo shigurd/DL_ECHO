@@ -32,11 +32,11 @@ class BasicDataset(Dataset):
 
         img_nd = np.array(pil_img)
 
-        # expand dim if image is 1 channel
+        ''' expand dim if image is 1 channel '''
         if len(img_nd.shape) == 2:
             img_nd = np.expand_dims(img_nd, axis=2)
 
-        # HWC to CHW
+        ''' HWC to CHW '''
         img_trans = img_nd.transpose((2, 0, 1))
         if img_trans.max() > 1:
             img_trans = img_trans / 255

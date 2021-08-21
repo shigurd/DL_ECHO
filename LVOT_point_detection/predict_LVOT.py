@@ -11,7 +11,7 @@ from PIL import Image
 from tqdm import tqdm
 
 from utils.dataloader_LVOT import BasicDataset
-from utils.point_losses_LVOT import DSNTDoubleLoss
+from utils.point_losses_LVOT import PixelDSNTDistanceDoublePredict
 
 import math
 import csv
@@ -21,32 +21,35 @@ sys.path.insert(0, '..')
 from networks.resnet50_torchvision import fcn_resnet50
 
 
+def predict_tensor(net,
+                   img_pil,
+                   device,
+                   scale_factor=1):
+    net.eval()
+
+    img_np = BasicDataset.preprocess(img_pil, scale_factor)
+    img_tensor = torch.from_numpy(img_np)
+
+    img_tensor = img_tensor.unsqueeze(0)
+    img_tensor = img_tensor.to(device=device, dtype=torch.float32)
+
+    with torch.no_grad():
+        output = net(img_tensor)
+        output = output['out']
+
+    return output
+
+
 def mask_to_image(mask_tensor):
     mask_np = mask_tensor.squeeze().numpy()
     return Image.fromarray((mask_np * 255).astype(np.uint8))
 
 
-def concat_img(img1, img2):  # pil img input
-    new_img = Image.new('RGB', (img1.width, img1.height + img2.height))
-    new_img.paste(img1, (0, 0))
-    new_img.paste(img2, (0, img1.height))
+def concat_img(img1_pil, img2_pil):
+    new_img = Image.new('RGB', (img1_pil.width, img1_pil.height + img2_pil.height))
+    new_img.paste(img1_pil, (0, 0))
+    new_img.paste(img2_pil, (0, img1_pil.height))
     return new_img
-
-
-def coords_from_true_mask(mask_tensor):
-    x_size = mask_tensor.shape[-1]
-    y_size = mask_tensor.shape[-2]
-
-    true_coord = torch.argmax(mask_tensor)
-    true_x_tensor = ((true_coord % x_size + 1).float() / x_size)
-    true_y_tensor = ((true_coord // x_size + 1).float() / y_size)
-
-    ''' -1 as the smallest index is 0 and not 1 '''
-    true_x_int = round(true_x_tensor.item() * x_size - 1)
-    true_y_int = round(true_y_tensor.item() * y_size - 1)
-
-    return true_x_int, true_y_int
-
 
 def coords_from_pred(pred_tensor):
     coordinate_list = []
@@ -71,128 +74,161 @@ def coords_from_pred(pred_tensor):
             pred_x_coord = torch.sum(pred_softmax * soft_argmax_x).cuda()
             pred_y_coord = torch.sum(pred_softmax * soft_argmax_y).cuda()
 
-            '''
-            coorda = torch.argmax(point)
-            true_x_coord = ((coord_argmax % x_size + 1).float() / x_size) 
-            true_y_coord = ((coord_argmax // x_size + 1).float() / y_size)
-            '''
+            ''' alternative argmax method of getting max value, but this is not the one used in training '''
+            #coorda = torch.argmax(point)
+            #true_x_coord = ((coord_argmax % x_size + 1).float() / x_size)
+            #true_y_coord = ((coord_argmax // x_size + 1).float() / y_size)
 
-            coordinate_list.append([float(pred_x_coord.item() * x_size - 1), float(
-                pred_y_coord.item() * y_size - 1)])  # -1 for å gjøre dem til index der minste val er 0
+            ''' converting each coordinate value back into index which requires - 1 '''
+            x_index = float(pred_x_coord.item() * x_size - 1)
+            y_index = float(pred_y_coord.item() * y_size - 1)
+            coordinate_list.append([x_index, y_index])
 
+    ''' output is in the format [[x1, y1], [x2, y2]] '''
     return coordinate_list
 
+def coords_from_true_mask(mask_tensor):
+    ''' converts true tensors into coordinates, more efficient as it only uses argmax compared to pred '''
 
-def draw_cross(np_img, x_center, y_center, radius, color=(255, 255, 255), rgb=True):
-    y_size, x_size = np_img.shape[:2]
+    x_size = mask_tensor.shape[-1]
+    y_size = mask_tensor.shape[-2]
 
+    true_coord = torch.argmax(mask_tensor)
+    true_x_tensor = ((true_coord % x_size + 1).float() / x_size)
+    true_y_tensor = ((true_coord // x_size + 1).float() / y_size)
+
+    ''' adds -1 as the smallest index is 0 and not 1 '''
+    true_x_int = round(true_x_tensor.item() * x_size - 1)
+    true_y_int = round(true_y_tensor.item() * y_size - 1)
+
+    return true_x_int, true_y_int
+
+
+def draw_cross(img_np, x_center, y_center, radius, color=(255, 255, 255), rgb=True):
+    ''' draws cross on given center coordinates with radius as length of appendages '''
+    y_size, x_size = img_np.shape[:2]
     if rgb == True:
         for y in range(y_size):
             for x in range(x_size):
                 try:
                     if x == x_center and (y_center - radius <= y <= y_center + radius):
-                        np_img[y, x] = color
+                        img_np[y, x] = color
                     elif y == y_center and (x_center - radius <= x <= x_center + radius):
-                        np_img[y, x] = color
+                        img_np[y, x] = color
                 except:
                     print('skipped pixel because coordinate out of bounds')
 
-        return np_img
+        return img_np
     else:
         print('np_img is not rgb, change color format')
 
 
-def predict_plot(mask_l_tensor, mask_r_tensor, coordinate_list):
-    img_pil = img_pil.convert('RGB')
+def predict_plot_on_truth_mask(true_mask_i_tensor, true_mask_s_tensor, pred_coordinate_list):
+    ''' plots ground truth and prediction og ground truth masks '''
+    pred_i_x, pred_i_y = pred_coordinate_list[0]
+    pred_s_x, pred_s_y = pred_coordinate_list[1]
 
-    pred_i_x, pred_i_y = coordinate_list[0]
-    pred_s_x, pred_s_y = coordinate_list[1]
+    true_i_x, true_i_y = coords_from_true_mask(true_mask_i_tensor)
+    true_s_x, true_s_y = coords_from_true_mask(true_mask_s_tensor)
 
-    true_i_x, true_i_y = coords_from_true_mask(mask_l_tensor)
-    true_s_x, true_s_y = coords_from_true_mask(mask_r_tensor)
-
-    mask_sum_tensor = mask_l_tensor + mask_r_tensor
-    mask_pil = mask_to_image(mask_sum_tensor)  # for å gjøre ting RGB
+    ''' converts normalized values back into 0-255 color range and makes it rgb for 3 channels '''
+    mask_sum_tensor = true_mask_i_tensor + true_mask_s_tensor
+    mask_pil = mask_to_image(mask_sum_tensor)
     mask_pil = mask_pil.convert('RGB')
     mask_np = np.array(mask_pil)
 
     zeros_true = np.zeros(mask_np.shape)
     zeros_pred = np.zeros(mask_np.shape)
 
+    ''' draws a + on each true coordinate '''
     true_coords_np = zeros_true
     true_coords_np = draw_cross(true_coords_np, true_i_x, true_i_y, 4, color=[0, 255, 0])
     true_coords_np = draw_cross(true_coords_np, true_s_x, true_s_y, 4, color=[0, 255, 0])
-    # true_coords_np[true_i_y, true_i_x] = [0, 255, 0] #tegner en pixel
-    # true_coords_np[true_s_y, true_s_x] = [0, 255, 0]
+    ''' only draws 1 pixel for true '''
+    #true_coords_np[true_i_y, true_i_x] = [0, 255, 0]
+    #true_coords_np[true_s_y, true_s_x] = [0, 255, 0]
 
+    ''' draws a + on each predicted coordinate '''
     pred_coords_np = zeros_pred
     pred_coords_np = draw_cross(pred_coords_np, pred_i_x, pred_i_y, 4, color=[255, 0, 0])
     pred_coords_np = draw_cross(pred_coords_np, pred_s_x, pred_s_y, 4, color=[255, 0, 0])
-    # pred_coords_np[pred_i_y, pred_i_x] = [255, 0, 0] #tegner en pixel
-    # pred_coords_np[pred_s_y, pred_s_x] = [255, 0, 0]
+    ''' only draws 1 pixel for prediction '''
+    #pred_coords_np[pred_i_y, pred_i_x] = [255, 0, 0]
+    #pred_coords_np[pred_s_y, pred_s_x] = [255, 0, 0]
 
+    ''' removes negative colors '''
     absolutt_diff_coords = np.absolute(pred_coords_np - true_coords_np).astype(np.uint8)
 
+    ''' draws colored pixels from abs diff on true mask  '''
     for y in range(absolutt_diff_coords.shape[0]):
         for x in range(absolutt_diff_coords.shape[1]):
-
             if np.sum(absolutt_diff_coords[y, x]) != 0:
                 mask_np[y, x] = absolutt_diff_coords[y, x]
             else:
                 pass
 
-    plot = Image.fromarray(mask_np.astype(np.uint8), 'RGB')
-    # plot.show()
+    plot_pil = Image.fromarray(mask_np.astype(np.uint8), 'RGB')
+    #plot_pil.show()
 
-    return plot  # pil img
+    return plot_pil
 
 
-def predict_plot_img(img_pil, mask_l_tensor, mask_r_tensor, coordinate_list):
+def predict_plot_on_image(img_pil, mask_i_tensor, mask_s_tensor, coordinate_list, plot_gt=False):
+    ''' pred [[x_i, y_i], [x_s, y_s]] '''
     coordinate_list = [[round(coordinate_list[0][0]), round(coordinate_list[0][1])],
                        [round(coordinate_list[1][0]), round(coordinate_list[1][1])]]
 
-    pred_l_x, pred_l_y = coordinate_list[0]
-    pred_r_x, pred_r_y = coordinate_list[1]
+    pred_i_x, pred_i_y = coordinate_list[0]
+    pred_s_x, pred_s_y = coordinate_list[1]
 
-    true_l_x, true_l_y = coords_from_true_mask(mask_l_tensor)
-    true_r_x, true_r_y = coords_from_true_mask(mask_r_tensor)
+    true_i_x, true_i_y = coords_from_true_mask(mask_i_tensor)
+    true_s_x, true_s_y = coords_from_true_mask(mask_s_tensor)
 
+    img_pil = img_pil.convert('RGB')
     img_np = np.array(img_pil)
 
     zeros_true = np.zeros(img_np.shape)
     zeros_pred = np.zeros(img_np.shape)
 
-    true_coords_np = zeros_true
-    true_coords_np = draw_cross(true_coords_np, true_l_x, true_l_y, 4, color=[0, 255, 0])
-    true_coords_np = draw_cross(true_coords_np, true_r_x, true_r_y, 4, color=[0, 255, 0])
-    # true_coords_np[true_l_y, true_l_x] = [0, 255, 0] #tegner en pixel
-    # true_coords_np[true_r_y, true_r_x] = [0, 255, 0]
-
+    ''' draws a + on each predicted coordinate '''
     pred_coords_np = zeros_pred
-    pred_coords_np = draw_cross(pred_coords_np, pred_l_x, pred_l_y, 4, color=[255, 0, 0])
-    pred_coords_np = draw_cross(pred_coords_np, pred_r_x, pred_r_y, 4, color=[255, 0, 0])
-    # pred_coords_np[pred_l_y, pred_l_x] = [255, 0, 0] #tegner en pixel
-    # pred_coords_np[pred_r_y, pred_r_x] = [255, 0, 0]
+    pred_coords_np = draw_cross(pred_coords_np, pred_i_x, pred_i_y, 4, color=[255, 0, 0])
+    pred_coords_np = draw_cross(pred_coords_np, pred_s_x, pred_s_y, 4, color=[255, 0, 0])
+    ''' only draws 1 pixel for prediction '''
+    #pred_coords_np[pred_i_y, pred_i_x] = [255, 0, 0]
+    #pred_coords_np[pred_s_y, pred_s_x] = [255, 0, 0]
 
-    absolutt_diff_coords = np.absolute(pred_coords_np - true_coords_np).astype(np.uint8)
+    if plot_gt == True:
+        ''' draws a + on each true coordinate '''
+        true_coords_np = zeros_true
+        true_coords_np = draw_cross(true_coords_np, true_i_x, true_i_y, 4, color=[0, 255, 0])
+        true_coords_np = draw_cross(true_coords_np, true_s_x, true_s_y, 4, color=[0, 255, 0])
+        ''' only draws 1 pixel for true '''
+        # true_coords_np[true_i_y, true_i_x] = [0, 255, 0]
+        # true_coords_np[true_s_y, true_s_x] = [0, 255, 0]
 
-    for y in range(absolutt_diff_coords.shape[0]):
-        for x in range(absolutt_diff_coords.shape[1]):
+        ''' removes negative colors '''
+        crosses_to_plot = np.absolute(pred_coords_np - true_coords_np).astype(np.uint8)
+    else:
+        crosses_to_plot = pred_coords_np
 
-            if np.sum(absolutt_diff_coords[y, x]) != 0:
-                img_np[y, x] = absolutt_diff_coords[y, x]
+    ''' draws colored pixels from abs diff on true mask  '''
+    for y in range(crosses_to_plot.shape[0]):
+        for x in range(crosses_to_plot.shape[1]):
+            if np.sum(crosses_to_plot[y, x]) != 0:
+                img_np[y, x] = crosses_to_plot[y, x]
             else:
                 pass
 
-    plot = Image.fromarray(img_np.astype(np.uint8), 'RGB')
-    # plot.show()
+    plot_pil = Image.fromarray(img_np.astype(np.uint8), 'RGB')
+    #plot_pil.show()
 
-    return plot  # pil img
+    return plot_pil
 
 
-def pil_overlay(foreground, background):  # pil img input
-    img1 = foreground.convert("RGBA")
-    img2 = background.convert("RGBA")
+def pil_overlay(foreground_pil, background_pil):  # pil img input
+    img1 = foreground_pil.convert("RGBA")
+    img2 = background_pil.convert("RGBA")
 
     overlay = Image.blend(img2, img1, alpha=.1)
 
@@ -224,7 +260,7 @@ def img_as_tensor_pil(img_pth, get_pil=True, rgb=False):
         return img_tensor
 
 
-def calc_lvot_diam(x1, y1, x2, y2):  # sigurd
+def calculate_lvot_diameter(x1, y1, x2, y2):
     x1 = float(x1)
     y1 = float(y1)
     x2 = float(x2)
@@ -235,16 +271,17 @@ def calc_lvot_diam(x1, y1, x2, y2):  # sigurd
     return diam
 
 
-def pixel_too_scancovert(pixel_coords, sc_params):  # sigurd
-    # input er np pix_coords [[x1, y1] [x2, y2]]
-    '''
-    print("x range")
-    print(sc_params["xmin"], sc_params["xmax"])
-    print("y range")
-    print(sc_params["ymin"], sc_params["ymax"])
-    print("siz)")
-    print(sc_params["shape"])
-    '''
+def pixel_too_scancovert(pixel_coords, sc_params):
+    ''' input is np, the format of pixel_coords is [[x1, y1] [x2, y2]] '''
+    ''' reversal of pixel coordinates back into GE scanconverted parameters for final lvot diameter calculation '''
+
+    #print("x range")
+    #print(sc_params["xmin"], sc_params["xmax"])
+    #print("y range")
+    #print(sc_params["ymin"], sc_params["ymax"])
+    #print("siz)")
+    #print(sc_params["shape"])
+
     sub_factor = np.array([sc_params["ymin"], -1 * sc_params["xmax"]])
     norm_factor = np.array([sc_params["shape"][0] / (sc_params["ymax"] - sc_params["ymin"]),
                             sc_params["shape"][1] / (sc_params["xmax"] - sc_params["xmin"])])
@@ -258,60 +295,81 @@ def pixel_too_scancovert(pixel_coords, sc_params):  # sigurd
     pixel_coords /= np.array([1, -1])
     sc_coords = pixel_coords.copy()[:, ::-1]
 
-    coords_cm = sc_coords * 100  # from meter to cm
+    ''' converts meters to cm '''
+    coords_cm = sc_coords * 100
 
     return coords_cm
 
 
-def predict_cm_coords_and_diameter(file_id, pix_coords, keyfile_csv):
-    # pix_coords format [[x1, y1] [x2, y2]]
+def predict_cm_coords_and_diameter(file_id, pred_coords_pix, keyfile_csv):
+    ''' input format of pix_coords is [[x1_cm, y1_pix] [x2, y2_pix]] '''
 
-    file_id = file_id.rsplit('_', 4)[0]  # pga nytt filformat
+    ''' file format is patient_number, img_number, img_type, img_zoom, i_quality, m_quality '''
+    file_id = file_id.rsplit('_', 4)[0]
 
     with open(keyfile_csv, 'r') as read_obj:
         csv_reader = csv.reader(read_obj)
-        next(csv_reader, None)  # skipper header
+        ''' skips header '''
+        next(csv_reader, None)
         found = False
 
         for row in csv_reader:
-            _, exam_id, patient_id, measure_type, img_quality, gt_quality, img_view, x1, y1, x2, y2, x1c, y1c, x2c, y2c, diam, sc_param = row
+            dcm_id, exam_id, patient_id, measure_type, img_quality, gt_quality, img_view, x1_pix, y1_pix, x2_pix, y2_pix, x1_cm, y1_cm, x2_cm, y2_cm, true_diam_cm_csv, sc_param = row
 
             sc_param = ast.literal_eval(sc_param)
 
             if file_id == patient_id:
                 found = True
 
-                pred_pix_diam = calc_lvot_diam(pix_coords[0][0], pix_coords[0][1], pix_coords[1][0], pix_coords[1][1])
-                true_pix_diam = calc_lvot_diam(x1, y1, x2, y2)
-                diff_pix_diam = pred_pix_diam - true_pix_diam  # negative er for kort, positiv er for lang
+                ''' caluculate pixel diameter, negative number indicate too short diameter, positive number indicate too long diameter '''
+                pred_diam_pix = calculate_lvot_diameter(pred_coords_pix[0][0], pred_coords_pix[0][1], pred_coords_pix[1][0], pred_coords_pix[1][1])
+                true_diam_pix = calculate_lvot_diameter(x1_pix, y1_pix, x2_pix, y2_pix)
+                diff_diam_pix = pred_diam_pix - true_diam_pix
 
-                pix_coords = np.array(pix_coords)
-                coords_cm = pixel_too_scancovert(pix_coords, sc_param)
+                ''' convert pixel to cm with scanconverted parameters '''
+                pred_coords_pix = np.array(pred_coords_pix)
+                coords_cm = pixel_too_scancovert(pred_coords_pix, sc_param)
 
-                pred_cm_diam = calc_lvot_diam(coords_cm[0][0], coords_cm[0][1], coords_cm[1][0], coords_cm[1][1])
-                true_cm_diam = calc_lvot_diam(x1c, y1c, x2c, y2c)
-                diff_cm_diam = pred_cm_diam - true_cm_diam  # negative er for kort, positiv er for lang
+                ''' caluculate cm diameter, negative number indicate too short diameter, positive number indicate too long diameter '''
+                pred_diam_cm = calculate_lvot_diameter(coords_cm[0][0], coords_cm[0][1], coords_cm[1][0], coords_cm[1][1])
+                true_diam_cm = calculate_lvot_diameter(x1_cm, y1_cm, x2_cm, y2_cm)
+                diff_diam_cm = pred_diam_cm - true_diam_cm
 
                 '''
-                #OBS dette er fordi enkelte koordinater var reversert laget i echopac der x2, y2 kommer først. har korrigert for dette men det blir et nytt problem når man bruker scanconvert
-                if diff_cm_diam * diff_pix_diam < 0:
-                    diff_cm_diam = diff_cm_diam * -1
-                elif diff_pix_diam == 0:
-                    diff_cm_diam = 0
+                #OBS dette er fordi enkelte koordinater var reversert lagret i echopac der x2_pix, y2_pix kommer først. har korrigert for dette men det blir et nytt problem når man bruker scanconvert
+                if diff_diam_cm * diff_diam_pix < 0:
+                    diff_diam_cm = diff_diam_cm * -1
+                elif diff_diam_pix == 0:
+                    diff_diam_cm = 0
                 '''
-                return diff_pix_diam, diff_cm_diam, pred_pix_diam, pred_cm_diam, diam
+                #print(f'calculated lvot diam pix: {pred_diam_pix}')
+                #print(f'calculated lvot diam diff pix: {diff_diam_pix}')
+
+                return pred_diam_cm, diff_diam_cm
 
         if found == False:
             print(file_id, 'NOT FOUND')
             return 'nan', 'nan', 'nan', 'nan'
 
+def get_output_filenames(in_file):
+    in_files = in_file
+    out_files = []
+
+    for f in in_files:
+        pathsplit = os.path.splitext(f)
+        out_files.append("{}_OUT{}".format(pathsplit[0], '.png'))
+
+    return out_files
+
 if __name__ == "__main__":
     
     ''' define model name, prediction dataset and model parameters '''
+    keyfile_csv = 'H:/ML_LVOT/txt_keyfile_and_duplicate/keyfile_1424_all_data.csv'
     model_file = 'Aug16_00-54-49_RES50_DSNT_ADAM_T-AVA1314Y1_HML_V-_EP30_LR0.001_BS20_SCL1.pth'
     data_name = 'AVA1314Y1_HML'
+    n_channels = 1
+    n_classes = 2
     scaling = 1
-    mask_threshold = 0.5
     compare_with_ground_truth = True
 
     model_path = path.join('checkpoints', model_file)
@@ -331,8 +389,8 @@ if __name__ == "__main__":
     input_files = os.listdir(dir_img)
     out_files = get_output_filenames(input_files)
     
-    ''' define dataloader and network settings '''
-    net = fcn_resnet50(pretrained=False, progress=True, num_classes=1, aux_loss=None)
+    ''' define network settings '''
+    net = fcn_resnet50(pretrained=False, progress=True, in_channels=n_channels, num_classes=n_classes, aux_loss=None)
     logging.info("Loading model {}".format(model_path))
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -345,15 +403,27 @@ if __name__ == "__main__":
     logging.info("Checkpoint loaded !")
     
     if compare_with_ground_truth == True:
-        file = open(path.join(predictions_output, f'DICEDATA_{model_name}.txt'), 'w+')
-        file.write('file_name,dice_score\n')
+        file = open(path.join(predictions_output, f'COORDDATA_{model_name}.txt'), 'w+')
+        file.write('file_name,measure_type,view_type,img_quality,gt_quality,diff_diam_pix,absdiff_diam_pix,diff_diam_cm,absdiff_diam_cm,diam_cm\n')
         file1 = open(path.join(predictions_output, 'temp.txt'), 'w+')
         file1.close()
         file2 = open(path.join(predictions_output, 'temp1.txt'), 'w+')
         file2.close()
+        file3 = open(path.join(predictions_output, 'temp2.txt'), 'w+')
+        file3.close()
+        file4 = open(path.join(predictions_output, 'temp3.txt'), 'w+')
+        file4.close()
+        file5 = open(path.join(predictions_output, 'temp4.txt'), 'w+')
+        file5.close()
 
-        median_list = np.array([])
-        total_dice = 0
+        ''' all values here are in absolute values '''
+        median_lvot_diam_absdiff_pix = np.array([])
+        median_lvot_diam_absdiff_cm = np.array([])
+        total_i_ed_pix = 0
+        total_s_ed_pix = 0
+        total_sum_ed_pix = 0
+        total_lvot_diam_absdiff_pix = 0
+        total_lvot_diam_absdiff_cm = 0
 
     with tqdm(total=len(input_files), desc='Predictions', unit='imgs', leave=False) as pbar:
 
@@ -361,52 +431,85 @@ if __name__ == "__main__":
             out_fn = out_files[i]
             logging.info("\nPredicting image {} ...".format(fn))
             img_pil = Image.open(path.join(dir_img, fn))
-            img_pil = img_pil.convert('RGB')
+            img_pil = img_pil.convert('L')
 
             ''' predict_tensor returns logits '''
-            mask_tensor_predicted = predict_tensor(net=net,
-                               img_pil=img_pil,
-                               scale_factor=scaling,
-                               device=device)
-
-            ''' converting predicted tensor to pil mask '''
-            mask_pil_predicted = convert_tensor_mask_to_pil(mask_tensor_predicted)
+            masks_tensors_predicted = predict_tensor(net=net,
+                                                     img_pil=img_pil,
+                                                     scale_factor=scaling,
+                                                     device=device)
 
             ''' if ground truth is available, make overlays and calculate mean and median dice '''
             if compare_with_ground_truth == True:
-                mask_path_true = path.join(dir_mask, f'{fn.rsplit(".", 1)[0]}_mask.png')
-                mask_pil_true = Image.open(mask_path_true)
-                mask_pil_true = mask_pil_true.convert('L')
-                mask_np_true = BasicDataset.preprocess(mask_pil_true, scaling)
-                mask_tensor_true = torch.from_numpy(mask_np_true).cuda() # to cuda as this is loaded with cpu
 
-                criterion = DSNTDoubleLoss()
-                dice_score = criterion(mask_tensor_predicted, mask_tensor_true).item()
+                ''' load masks as tensor and concatenate for loss '''
+                masks_paths_true = glob(path.join(dir_mask, fn.rsplit(".", 1)[0]) + '*')
+                masks_tensors_true = []
+                for mask in masks_paths_true:
+                    mask_pil_true = Image.open(mask)
+                    mask_pil_true = mask_pil_true.convert('L')
+                    mask_np_true = BasicDataset.preprocess(mask_pil_true, scaling)
+                    mask_np_true = np.expand_dims(mask_np_true, axis=0) #adds the batch size
+                    mask_tensor_true = torch.from_numpy(mask_np_true)
+                    masks_tensors_true.append(mask_tensor_true)
+                masks_tensors_true_cat = torch.cat((masks_tensors_true[0], masks_tensors_true[1]), 1).to(device=device, dtype=torch.float32)
 
-                ''' calculate mean dice and median dice and logging in txt '''
-                total_dice += dice_score
-                median_list = np.append(median_list, dice_score)
-                dice4 = '{:.4f}'.format(dice_score)
-                file.write(f'{fn},{dice4} \n')
+                criterion = PixelDSNTDistanceDoublePredict()
+                loss_list_tensor = criterion(masks_tensors_predicted, masks_tensors_true_cat)
+                ed_i_pix = loss_list_tensor[0].item()
+                ed_s_pix = loss_list_tensor[1].item()
+                ed_tot_pix = loss_list_tensor[2].item()
+                diff_diam_pix = loss_list_tensor[3].item()
+                absdiff_diam_pix = loss_list_tensor[4].item()
 
-                ''' plotting overlays between predicted masks and gt masks '''
-                comparison_masks = pil_overlay_predicted_and_gt(mask_pil_true, mask_pil_predicted)
-                ''' plotting overlays between predicted masks and input image '''
-                #prediction_on_img = pil_overlay(mask_pil_true.convert('L'), img_pil)
+                ''' calculate inferior ED, superior ED, summed ED, summed absolute lvot diameter and median absolute lvot diameter in pixels '''
+                total_i_ed_pix += ed_i_pix
+                total_s_ed_pix += ed_s_pix
+                total_sum_ed_pix += ed_tot_pix
+                total_lvot_diam_absdiff_pix += absdiff_diam_pix
 
-                img_with_comparison = concat_img(img_pil, comparison_masks)
-                img_with_comparison.save(path.join(predictions_output, f'{str(dice4).rsplit(".", 1)[1]}_{out_fn}'))
+                median_lvot_diam_absdiff_pix = np.append(median_lvot_diam_absdiff_pix, absdiff_diam_pix)
+
+                ''' get coordinates from predict for converting pixel lvot predicitons to cm '''
+                coordinate_list = coords_from_pred(masks_tensors_predicted)
+                pred_diam_cm, diff_diam_cm = predict_cm_coords_and_diameter(fn, coordinate_list, keyfile_csv)
+
+                ''' calculate total and median for lvot diameter cm '''
+                absdiff_diam_cm = math.sqrt(diff_diam_cm**2)
+                total_lvot_diam_absdiff_cm += absdiff_diam_cm
+                median_lvot_diam_absdiff_cm = np.append(median_lvot_diam_absdiff_cm, absdiff_diam_cm)
+
+                ''' log the data '''
+                diff_diam_pix = '{:.4f}'.format(diff_diam_pix)
+                absdiff_diam_pix = '{:.4f}'.format(absdiff_diam_pix)
+                diff_diam_cm = '{:.4f}'.format(diff_diam_cm)
+                absdiff_diam_cm = '{:.4f}'.format(absdiff_diam_cm)
+                pred_diam_cm = '{:.4f}'.format(pred_diam_cm)
+                patient_id, measure_type, view_type, img_quality, gt_quality = fn.rsplit('_', 4)
+                file.write(f'{fn},{measure_type},{view_type},{img_quality},{gt_quality},{diff_diam_pix},{absdiff_diam_pix},{diff_diam_cm},{absdiff_diam_cm},{pred_diam_cm}\n')
+
+                ''' plotting and saving coordinate overlay on original image with gt '''
+                pred_plot = predict_plot_on_image(img_pil, masks_tensors_true[0], masks_tensors_true[1], coordinate_list, plot_gt=compare_with_ground_truth)
+                pred_plot.save(path.join(predictions_output, f'{str(absdiff_diam_pix)}_{out_fn}'))
 
             else:
-                ''' just save predicted masks '''
-                mask_pil_predicted.save(path.join(predictions_output, out_fn))
+                ''' just save coordinate overlay on original image '''
+                pred_plot = predict_plot_on_image(img_pil, masks_tensors_true[0], masks_tensors_true[1], coordinate_list, plot_gt=compare_with_ground_truth)
+                pred_plot.save(path.join(predictions_output, out_fn))
 
             logging.info("Mask saved to {}".format(out_files[i]))
             pbar.update()
 
         if compare_with_ground_truth == True:
             file.close()
-            avg_dice = total_dice / (i + 1)
-            avg_dice4 = '{:.4f}'.format(avg_dice)[2:] #runder av dice og fjerner 0.
-            os.rename(path.join(predictions_output, 'temp.txt'), path.join(predictions_output, f'AVGDICE_{avg_dice4}_DICEDATA_{model_name}.txt'))
-            os.rename(path.join(predictions_output, 'temp1.txt'), path.join(predictions_output, f'MEDIAN_{np.median(median_list)}_DICEDATA_{model_name}.txt'))
+            avg_sum_ed_pix = total_sum_ed_pix / (i + 1)
+            avg_lvot_diam_absdiff_pix = total_lvot_diam_absdiff_pix / (i + 1)
+            avg_lvot_diam_absdiff_cm = total_lvot_diam_absdiff_cm / (i + 1)
+            avg_sum_ed_pix = '{:.4f}'.format(avg_sum_ed_pix)
+            avg_lvot_diam_absdiff_pix = '{:.4f}'.format(avg_lvot_diam_absdiff_pix)
+            avg_lvot_diam_absdiff_cm = '{:.4f}'.format(avg_lvot_diam_absdiff_cm)
+            os.rename(path.join(predictions_output, 'temp.txt'), path.join(predictions_output, f'AVG_SUM_ED_{avg_sum_ed_pix}_DATA_{model_name}.txt'))
+            os.rename(path.join(predictions_output, 'temp1.txt'), path.join(predictions_output, f'AVD_LVOTD_PIX_{avg_lvot_diam_absdiff_pix}_DATA_{model_name}.txt'))
+            os.rename(path.join(predictions_output, 'temp2.txt'), path.join(predictions_output, f'AVG_LVOTD_CM_{avg_lvot_diam_absdiff_cm}_DATA_{model_name}.txt'))
+            os.rename(path.join(predictions_output, 'temp3.txt'), path.join(predictions_output, f'MEDIAN_LVOTD_PIX_{np.median(median_lvot_diam_absdiff_pix)}_DATA_{model_name}.txt'))
+            os.rename(path.join(predictions_output, 'temp4.txt'), path.join(predictions_output, f'MEDIAN_LVOTD_CM_{np.median(median_lvot_diam_absdiff_cm)}_DATA_{model_name}.txt'))

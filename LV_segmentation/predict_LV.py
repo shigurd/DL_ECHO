@@ -141,7 +141,7 @@ if __name__ == "__main__":
     input_files = os.listdir(dir_img)
     out_files = get_output_filenames(input_files)
     
-    ''' define dataloader and network settings '''
+    ''' define network settings '''
     net = fcn_resnet50(pretrained=False, progress=True, in_channels=n_channels, num_classes=n_classes, aux_loss=None)
     logging.info("Loading model {}".format(model_path))
 

@@ -286,9 +286,9 @@ class MSEDSNTDistanceDoubleLoss(nn.Module):
 
 
             ''' calculate true absolute distance and predicted absolute distance to find the absolute difference '''
-            pred_dist_abs = torch.sqrt(torch.sum((pred_dist_list_array[0] - pred_dist_list_array[1]) ** 2))
-            true_dist_abs = torch.sqrt(torch.sum((true_dist_list_array[0] - true_dist_list_array[1]) ** 2))
-            diff_dist_abs = torch.sqrt((pred_dist_abs - true_dist_abs) ** 2)
+            pred_dist = torch.sqrt(torch.sum((pred_dist_list_array[0] - pred_dist_list_array[1]) ** 2))
+            true_dist = torch.sqrt(torch.sum((true_dist_list_array[0] - true_dist_list_array[1]) ** 2))
+            diff_dist_abs = torch.sqrt((pred_dist - true_dist) ** 2)
 
             s += diff_dist_abs
 
@@ -362,14 +362,14 @@ class MSEDSNTDistanceAngleDoubleLoss(nn.Module):
             pred_vector = pred_dist_list_array[0] - pred_dist_list_array[1]
             true_vector = true_dist_list_array[0] - true_dist_list_array[1]
 
-            pred_dist_abs = torch.sqrt(torch.sum(pred_vector ** 2))
-            true_dist_abs = torch.sqrt(torch.sum(true_vector ** 2))
-            diff_dist_abs = torch.sqrt((pred_dist_abs - true_dist_abs) ** 2)
+            pred_dist = torch.sqrt(torch.sum(pred_vector ** 2))
+            true_dist = torch.sqrt(torch.sum(true_vector ** 2))
+            diff_dist_abs = torch.sqrt((pred_dist - true_dist) ** 2)
 
             s += diff_dist_abs
 
             ''' calculate angle between predicted and true vector '''
-            cos_distance = 1 - torch.cos(torch.dot(pred_vector, true_vector) / (pred_dist_abs * true_dist_abs))
+            cos_distance = 1 - torch.cos(torch.dot(pred_vector, true_vector) / (pred_dist * true_dist))
             s += cos_distance * 0.1
 
             ''' option to convert angle output to radians or angles instad of cosine distance '''
@@ -457,11 +457,11 @@ class PixelDSNTDistanceDoubleEval(nn.Module):
         if input.is_cuda:
             s_i = torch.FloatTensor(1).cuda().zero_()
             s_s = torch.FloatTensor(1).cuda().zero_()
-            s_diam_abs = torch.FloatTensor(1).cuda().zero_()
+            s_diam_diff_abs = torch.FloatTensor(1).cuda().zero_()
         else:
             s_i = torch.FloatTensor(1).zero_()
             s_s = torch.FloatTensor(1).zero_()
-            s_diam_abs = torch.FloatTensor(1).cuda().zero_()
+            s_diam_diff_abs = torch.FloatTensor(1).cuda().zero_()
 
         for i, c in enumerate(zip(input, target)):
 
@@ -522,12 +522,102 @@ class PixelDSNTDistanceDoubleEval(nn.Module):
             vector_pred = pred_dist_list_array[0] - pred_dist_list_array[1]
             vector_true = true_dist_list_array[0] - true_dist_list_array[1]
 
-            pred_distance_abs = torch.sqrt(torch.sum(vector_pred ** 2))
-            true_distance_abs = torch.sqrt(torch.sum(vector_true ** 2))
-            diff_distance_abs = torch.sqrt((pred_distance_abs - true_distance_abs) ** 2)
+            pred_distance = torch.sqrt(torch.sum(vector_pred ** 2))
+            true_distance = torch.sqrt(torch.sum(vector_true ** 2))
+            diff_distance_abs = torch.sqrt((pred_distance - true_distance) ** 2)
 
             #print('diff distance:', diff_distance)
-            s_diam_abs += diff_distance_abs
+            s_diam_diff_abs += diff_distance_abs
 
         ''' outputs absolute inferior loss, superior loss, total loss and diameter difference '''
-        return s_i / (i + 1), s_s / (i + 1), (s_i + s_s) / (i + 1), s_diam_abs / (i + 1)
+        return s_i / (i + 1), s_s / (i + 1), (s_i + s_s) / (i + 1), s_diam_diff_abs / (i + 1)
+
+
+class PixelDSNTDistanceDoublePredict(nn.Module):
+    def __init__(self):
+        super(PixelDSNTDistanceDoublePredict, self).__init__()
+
+    def forward(self, input, target):
+        if input.is_cuda:
+            s_i = torch.FloatTensor(1).cuda().zero_()
+            s_s = torch.FloatTensor(1).cuda().zero_()
+            s_diff_distance = torch.FloatTensor(1).cuda().zero_()
+            s_diam_diff_abs = torch.FloatTensor(1).cuda().zero_()
+        else:
+            s_i = torch.FloatTensor(1).zero_()
+            s_s = torch.FloatTensor(1).zero_()
+            s_diff_distance = torch.FloatTensor(1).zero_()
+            s_diam_diff_abs = torch.FloatTensor(1).zero_()
+
+        for i, c in enumerate(zip(input, target)):
+
+            pred_dist_list_array = []
+            true_dist_list_array = []
+
+            for o, points in enumerate(zip(c[0], c[1])):
+                ''' calculates center of mass of the heatmap with softmax, in other words DSNT '''
+                x_size = points[0].shape[-1]
+                y_size = points[0].shape[-2]
+
+                x_soft_argmax = torch.zeros((y_size, x_size)).cuda()
+                y_soft_argmax = torch.zeros((y_size, x_size)).cuda()
+
+                for p in range(y_size):
+                    y_soft_argmax[p, :] = (p + 1) / y_size
+
+                for j in range(x_size):
+                    x_soft_argmax[:, j] = (j + 1) / x_size
+
+                softmax = nn.Softmax(0)
+                pred_mask_softmax = softmax(points[0].view(-1)).view(points[0].shape)
+
+                pred_x_coord = torch.sum(pred_mask_softmax * x_soft_argmax).cuda()
+                pred_y_coord = torch.sum(pred_mask_softmax * y_soft_argmax).cuda()
+
+                ''' argmax for ground truth '''
+                coord_argmax = torch.argmax(points[1]).detach()
+                true_x_coord = ((coord_argmax % x_size + 1).float() / x_size).cuda()
+                true_y_coord = ((coord_argmax // x_size + 1).float() / y_size).cuda()
+
+                ''' converts normalized values to pixel '''
+                pred_coords_stack = torch.stack((pred_x_coord, pred_y_coord))
+                true_coords_stack = torch.stack((true_x_coord, true_y_coord))
+
+                pred_x_coord_pixel, pred_y_coord_pixel = coords_norm_to_pixel(pred_coords_stack, x_size, y_size)
+                true_x_coord_pixel, true_y_coord_pixel = coords_norm_to_pixel(true_coords_stack, x_size, y_size)
+
+                ed_loss_pixel = torch.sqrt(
+                    (true_x_coord_pixel - pred_x_coord_pixel) ** 2 + (true_y_coord_pixel - pred_y_coord_pixel) ** 2)
+
+                ''' option to use normalized values '''
+                # ed_loss = torch.sqrt((true_x_coord - pred_x_coord) ** 2 + (true_y_coord - pred_y_coord) ** 2)
+
+                ''' add pixel points to distance calculation tensor '''
+                pred_coords_stack_pixel = torch.stack((pred_x_coord_pixel, pred_y_coord_pixel))
+                true_coords_stack_pixel = torch.stack((true_x_coord_pixel, true_y_coord_pixel))
+
+                pred_dist_list_array.append(pred_coords_stack_pixel)
+                true_dist_list_array.append(true_coords_stack_pixel)
+
+                if o == 0:
+                    s_i += ed_loss_pixel
+                else:
+                    s_s += ed_loss_pixel
+
+            ''' outputs absolute pixelwise distance '''
+            vector_pred = pred_dist_list_array[0] - pred_dist_list_array[1]
+            vector_true = true_dist_list_array[0] - true_dist_list_array[1]
+
+            pred_distance = torch.sqrt(torch.sum(vector_pred ** 2))
+            true_distance = torch.sqrt(torch.sum(vector_true ** 2))
+            diff_distance = pred_distance - true_distance
+            diff_distance_abs = torch.sqrt(diff_distance ** 2)
+
+            #print(f'loss lvot diam pix {pred_distance.item()}')
+            #print(f'loss lvot diam diff pix {diff_distance.item()}')
+
+            s_diff_distance += diff_distance
+            s_diam_diff_abs += diff_distance_abs
+
+        ''' outputs absolute inferior loss, superior loss, total loss, diameter difference and absolute diameter distance '''
+        return s_i / (i + 1), s_s / (i + 1), (s_i + s_s) / (i + 1), s_diff_distance / (i + 1), s_diam_diff_abs / (i + 1)
