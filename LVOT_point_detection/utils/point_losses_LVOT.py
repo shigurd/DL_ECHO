@@ -533,6 +533,7 @@ class PixelDSNTDistanceDoubleEval(nn.Module):
         return s_i / (i + 1), s_s / (i + 1), (s_i + s_s) / (i + 1), s_diam_diff_abs / (i + 1)
 
 
+''' not that this only works when images are predicted with batch size of 1 '''
 class PixelDSNTDistanceDoublePredict(nn.Module):
     def __init__(self):
         super(PixelDSNTDistanceDoublePredict, self).__init__()
@@ -541,13 +542,14 @@ class PixelDSNTDistanceDoublePredict(nn.Module):
         if input.is_cuda:
             s_i = torch.FloatTensor(1).cuda().zero_()
             s_s = torch.FloatTensor(1).cuda().zero_()
-            s_diff_distance = torch.FloatTensor(1).cuda().zero_()
-            s_diam_diff_abs = torch.FloatTensor(1).cuda().zero_()
+            s_diam_diff = torch.FloatTensor(1).cuda().zero_()
         else:
             s_i = torch.FloatTensor(1).zero_()
             s_s = torch.FloatTensor(1).zero_()
-            s_diff_distance = torch.FloatTensor(1).zero_()
-            s_diam_diff_abs = torch.FloatTensor(1).zero_()
+            s_diam_diff = torch.FloatTensor(1).zero_()
+
+        pred_coordinate_list = []
+        true_coordinate_list = []
 
         for i, c in enumerate(zip(input, target)):
 
@@ -586,6 +588,10 @@ class PixelDSNTDistanceDoublePredict(nn.Module):
                 pred_x_coord_pixel, pred_y_coord_pixel = coords_norm_to_pixel(pred_coords_stack, x_size, y_size)
                 true_x_coord_pixel, true_y_coord_pixel = coords_norm_to_pixel(true_coords_stack, x_size, y_size)
 
+                ''' returns the actual coordinate which requires a -1 since it is an index '''
+                pred_coordinate_list.append([pred_x_coord_pixel.item() - 1, pred_y_coord_pixel.item() - 1])
+                true_coordinate_list.append([true_x_coord_pixel.item() - 1, true_y_coord_pixel.item() - 1])
+
                 ed_loss_pixel = torch.sqrt(
                     (true_x_coord_pixel - pred_x_coord_pixel) ** 2 + (true_y_coord_pixel - pred_y_coord_pixel) ** 2)
 
@@ -611,13 +617,11 @@ class PixelDSNTDistanceDoublePredict(nn.Module):
             pred_distance = torch.sqrt(torch.sum(vector_pred ** 2))
             true_distance = torch.sqrt(torch.sum(vector_true ** 2))
             diff_distance = pred_distance - true_distance
-            diff_distance_abs = torch.sqrt(diff_distance ** 2)
 
             #print(f'loss lvot diam pix {pred_distance.item()}')
             #print(f'loss lvot diam diff pix {diff_distance.item()}')
 
-            s_diff_distance += diff_distance
-            s_diam_diff_abs += diff_distance_abs
+            s_diam_diff += diff_distance
 
-        ''' outputs absolute inferior loss, superior loss, total loss, diameter difference and absolute diameter distance '''
-        return s_i / (i + 1), s_s / (i + 1), (s_i + s_s) / (i + 1), s_diff_distance / (i + 1), s_diam_diff_abs / (i + 1)
+        ''' outputs absolute inferior loss, superior loss, total loss, diameter difference and coordiante lists for pred and gt '''
+        return s_i / (i + 1), s_s / (i + 1), (s_i + s_s) / (i + 1), s_diam_diff / (i + 1), pred_coordinate_list, true_coordinate_list

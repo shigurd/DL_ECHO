@@ -21,6 +21,58 @@ sys.path.insert(0, '..')
 from networks.resnet50_torchvision import fcn_resnet50
 
 
+''' deprecated as all is done in loss function now '''
+def coords_from_pred(pred_tensor):
+    coordinate_list = []
+    for batch in pred_tensor:
+        for channel in batch:
+            x_size = channel.shape[-1]
+            y_size = channel.shape[-2]
+            soft_argmax_x = torch.zeros((y_size, x_size)).cuda()
+            soft_argmax_y = torch.zeros((y_size, x_size)).cuda()
+
+            for p in range(y_size):
+                soft_argmax_y[p, :] = (p + 1) / y_size
+
+            for j in range(x_size):
+                soft_argmax_x[:, j] = (j + 1) / x_size
+
+            softmax = nn.Softmax(0)
+            pred_softmax = softmax(channel.view(-1)).view(channel.shape)
+            pred_x_coord = torch.sum(pred_softmax * soft_argmax_x).cuda()
+            pred_y_coord = torch.sum(pred_softmax * soft_argmax_y).cuda()
+
+            ''' alternative argmax method of getting max value, but this is not the one used in training '''
+            #coorda = torch.argmax(point)
+            #true_x_coord = ((coord_argmax % x_size + 1).float() / x_size)
+            #true_y_coord = ((coord_argmax // x_size + 1).float() / y_size)
+
+            ''' converting each coordinate value back into index which requires - 1 '''
+            x_index = float(pred_x_coord.item() * x_size - 1)
+            y_index = float(pred_y_coord.item() * y_size - 1)
+            coordinate_list.append([x_index, y_index])
+
+    ''' output is in the format [[x1, y1], [x2, y2]] '''
+    return coordinate_list
+
+
+''' deprecated as all is done in loss function now '''
+def coords_from_true_mask(mask_tensor):
+    ''' converts true tensors into coordinates, more efficient as it only uses argmax compared to pred '''
+    x_size = mask_tensor.shape[-1]
+    y_size = mask_tensor.shape[-2]
+
+    true_coord = torch.argmax(mask_tensor)
+    true_x_tensor = ((true_coord % x_size + 1).float() / x_size)
+    true_y_tensor = ((true_coord // x_size + 1).float() / y_size)
+
+    ''' adds -1 as the smallest index is 0 and not 1 '''
+    true_x_int = round(true_x_tensor.item() * x_size - 1)
+    true_y_int = round(true_y_tensor.item() * y_size - 1)
+
+    return true_x_int, true_y_int
+
+
 def predict_tensor(net,
                    img_pil,
                    device,
@@ -51,58 +103,6 @@ def concat_img(img1_pil, img2_pil):
     new_img.paste(img2_pil, (0, img1_pil.height))
     return new_img
 
-def coords_from_pred(pred_tensor):
-    coordinate_list = []
-
-    for batch in pred_tensor:
-        for channel in batch:
-
-            x_size = channel.shape[-1]
-            y_size = channel.shape[-2]
-
-            soft_argmax_x = torch.zeros((y_size, x_size)).cuda()
-            soft_argmax_y = torch.zeros((y_size, x_size)).cuda()
-
-            for p in range(y_size):
-                soft_argmax_y[p, :] = (p + 1) / y_size
-
-            for j in range(x_size):
-                soft_argmax_x[:, j] = (j + 1) / x_size
-
-            softmax = nn.Softmax(0)
-            pred_softmax = softmax(channel.view(-1)).view(channel.shape)
-            pred_x_coord = torch.sum(pred_softmax * soft_argmax_x).cuda()
-            pred_y_coord = torch.sum(pred_softmax * soft_argmax_y).cuda()
-
-            ''' alternative argmax method of getting max value, but this is not the one used in training '''
-            #coorda = torch.argmax(point)
-            #true_x_coord = ((coord_argmax % x_size + 1).float() / x_size)
-            #true_y_coord = ((coord_argmax // x_size + 1).float() / y_size)
-
-            ''' converting each coordinate value back into index which requires - 1 '''
-            x_index = float(pred_x_coord.item() * x_size - 1)
-            y_index = float(pred_y_coord.item() * y_size - 1)
-            coordinate_list.append([x_index, y_index])
-
-    ''' output is in the format [[x1, y1], [x2, y2]] '''
-    return coordinate_list
-
-def coords_from_true_mask(mask_tensor):
-    ''' converts true tensors into coordinates, more efficient as it only uses argmax compared to pred '''
-
-    x_size = mask_tensor.shape[-1]
-    y_size = mask_tensor.shape[-2]
-
-    true_coord = torch.argmax(mask_tensor)
-    true_x_tensor = ((true_coord % x_size + 1).float() / x_size)
-    true_y_tensor = ((true_coord // x_size + 1).float() / y_size)
-
-    ''' adds -1 as the smallest index is 0 and not 1 '''
-    true_x_int = round(true_x_tensor.item() * x_size - 1)
-    true_y_int = round(true_y_tensor.item() * y_size - 1)
-
-    return true_x_int, true_y_int
-
 
 def draw_cross(img_np, x_center, y_center, radius, color=(255, 255, 255), rgb=True):
     ''' draws cross on given center coordinates with radius as length of appendages '''
@@ -123,13 +123,13 @@ def draw_cross(img_np, x_center, y_center, radius, color=(255, 255, 255), rgb=Tr
         print('np_img is not rgb, change color format')
 
 
-def predict_plot_on_truth_mask(true_mask_i_tensor, true_mask_s_tensor, pred_coordinate_list):
+def predict_plot_on_truth_mask(true_mask_i_tensor, true_mask_s_tensor, true_coordinate_list, pred_coordinate_list):
     ''' plots ground truth and prediction og ground truth masks '''
     pred_i_x, pred_i_y = pred_coordinate_list[0]
     pred_s_x, pred_s_y = pred_coordinate_list[1]
 
-    true_i_x, true_i_y = coords_from_true_mask(true_mask_i_tensor)
-    true_s_x, true_s_y = coords_from_true_mask(true_mask_s_tensor)
+    true_i_x, true_i_y = true_coordinate_list[0]
+    true_s_x, true_s_y = true_coordinate_list[1]
 
     ''' converts normalized values back into 0-255 color range and makes it rgb for 3 channels '''
     mask_sum_tensor = true_mask_i_tensor + true_mask_s_tensor
@@ -173,16 +173,18 @@ def predict_plot_on_truth_mask(true_mask_i_tensor, true_mask_s_tensor, pred_coor
     return plot_pil
 
 
-def predict_plot_on_image(img_pil, mask_i_tensor, mask_s_tensor, coordinate_list, plot_gt=False):
-    ''' pred [[x_i, y_i], [x_s, y_s]] '''
-    coordinate_list = [[round(coordinate_list[0][0]), round(coordinate_list[0][1])],
-                       [round(coordinate_list[1][0]), round(coordinate_list[1][1])]]
+def predict_plot_on_image(img_pil, pred_coordinate_list, true_coordinate_list, plot_gt=False):
+    ''' pred and true  [[x_i, y_i], [x_s, y_s]] '''
+    pred_coordinate_list = [[round(pred_coordinate_list[0][0]), round(pred_coordinate_list[0][1])],
+                            [round(pred_coordinate_list[1][0]), round(pred_coordinate_list[1][1])]]
+    true_coordinate_list = [[round(true_coordinate_list[0][0]), round(true_coordinate_list[0][1])],
+                            [round(true_coordinate_list[1][0]), round(true_coordinate_list[1][1])]]
 
-    pred_i_x, pred_i_y = coordinate_list[0]
-    pred_s_x, pred_s_y = coordinate_list[1]
+    pred_i_x, pred_i_y = pred_coordinate_list[0]
+    pred_s_x, pred_s_y = pred_coordinate_list[1]
 
-    true_i_x, true_i_y = coords_from_true_mask(mask_i_tensor)
-    true_s_x, true_s_y = coords_from_true_mask(mask_s_tensor)
+    true_i_x, true_i_y = true_coordinate_list[0]
+    true_s_x, true_s_y = true_coordinate_list[1]
 
     img_pil = img_pil.convert('RGB')
     img_np = np.array(img_pil)
@@ -301,7 +303,7 @@ def pixel_too_scancovert(pixel_coords, sc_params):
     return coords_cm
 
 
-def predict_cm_coords_and_diameter(file_id, pred_coords_pix, keyfile_csv):
+def predict_cm_coords_and_diameter(file_id, pred_coord_list_pix, true_coord_list_pix, keyfile_csv):
     ''' input format of pix_coords is [[x1_cm, y1_pix] [x2, y2_pix]] '''
 
     ''' file format is patient_number, img_number, img_type, img_zoom, i_quality, m_quality '''
@@ -322,18 +324,26 @@ def predict_cm_coords_and_diameter(file_id, pred_coords_pix, keyfile_csv):
                 found = True
 
                 ''' caluculate pixel diameter, negative number indicate too short diameter, positive number indicate too long diameter '''
-                pred_diam_pix = calculate_lvot_diameter(pred_coords_pix[0][0], pred_coords_pix[0][1], pred_coords_pix[1][0], pred_coords_pix[1][1])
-                true_diam_pix = calculate_lvot_diameter(x1_pix, y1_pix, x2_pix, y2_pix)
+                pred_diam_pix = calculate_lvot_diameter(pred_coord_list_pix[0][0], pred_coord_list_pix[0][1], pred_coord_list_pix[1][0], pred_coord_list_pix[1][1])
+                true_diam_pix = calculate_lvot_diameter(true_coord_list_pix[0][0], true_coord_list_pix[0][1], true_coord_list_pix[1][0], true_coord_list_pix[1][1])
                 diff_diam_pix = pred_diam_pix - true_diam_pix
 
                 ''' convert pixel to cm with scanconverted parameters '''
-                pred_coords_pix = np.array(pred_coords_pix)
-                coords_cm = pixel_too_scancovert(pred_coords_pix, sc_param)
+                pred_coord_list_pix = np.array(pred_coord_list_pix)
+                pred_coords_cm = pixel_too_scancovert(pred_coord_list_pix, sc_param)
+
+                true_coord_list_pix = np.array(true_coord_list_pix)
+                true_coords_cm = pixel_too_scancovert(true_coord_list_pix, sc_param)
 
                 ''' caluculate cm diameter, negative number indicate too short diameter, positive number indicate too long diameter '''
-                pred_diam_cm = calculate_lvot_diameter(coords_cm[0][0], coords_cm[0][1], coords_cm[1][0], coords_cm[1][1])
-                true_diam_cm = calculate_lvot_diameter(x1_cm, y1_cm, x2_cm, y2_cm)
+                pred_diam_cm = calculate_lvot_diameter(pred_coords_cm[0][0], pred_coords_cm[0][1], pred_coords_cm[1][0], pred_coords_cm[1][1])
+                true_diam_cm = calculate_lvot_diameter(true_coords_cm[0][0], true_coords_cm[0][1], true_coords_cm[1][0], true_coords_cm[1][1])
                 diff_diam_cm = pred_diam_cm - true_diam_cm
+
+                #print('\nfrom csv true coords pix: ', x2_pix, y2_pix, x1_pix, y1_pix)
+                #print('from calculated true coords pix', true_coord_list_pix[0][0], true_coord_list_pix[0][1], true_coord_list_pix[1][0], true_coord_list_pix[1][1])
+                print('\nfrom csv true coords cm: ', x2_cm, y2_cm, x1_cm, y1_cm)
+                print('from calculated true coords cm', true_coords_cm[0][0], true_coords_cm[0][1], true_coords_cm[1][0], true_coords_cm[1][1])
 
                 '''
                 #OBS dette er fordi enkelte koordinater var reversert lagret i echopac der x2_pix, y2_pix kommer først. har korrigert for dette men det blir et nytt problem når man bruker scanconvert
@@ -404,7 +414,7 @@ if __name__ == "__main__":
     
     if compare_with_ground_truth == True:
         file = open(path.join(predictions_output, f'COORDDATA_{model_name}.txt'), 'w+')
-        file.write('file_name,measure_type,view_type,img_quality,gt_quality,diff_diam_pix,absdiff_diam_pix,diff_diam_cm,absdiff_diam_cm,diam_cm\n')
+        file.write('file_name,measure_type,view_type,img_quality,gt_quality,diff_diam_pix,diff_diam_cm,diam_cm\n')
         file1 = open(path.join(predictions_output, 'temp.txt'), 'w+')
         file1.close()
         file2 = open(path.join(predictions_output, 'temp1.txt'), 'w+')
@@ -460,7 +470,10 @@ if __name__ == "__main__":
                 ed_s_pix = loss_list_tensor[1].item()
                 ed_tot_pix = loss_list_tensor[2].item()
                 diff_diam_pix = loss_list_tensor[3].item()
-                absdiff_diam_pix = loss_list_tensor[4].item()
+                absdiff_diam_pix = abs(diff_diam_pix)
+
+                pred_coordinate_list = loss_list_tensor[4]
+                true_coordinate_list = loss_list_tensor[5]
 
                 ''' calculate inferior ED, superior ED, summed ED, summed absolute lvot diameter and median absolute lvot diameter in pixels '''
                 total_i_ed_pix += ed_i_pix
@@ -470,12 +483,11 @@ if __name__ == "__main__":
 
                 median_lvot_diam_absdiff_pix = np.append(median_lvot_diam_absdiff_pix, absdiff_diam_pix)
 
-                ''' get coordinates from predict for converting pixel lvot predicitons to cm '''
-                coordinate_list = coords_from_pred(masks_tensors_predicted)
-                pred_diam_cm, diff_diam_cm = predict_cm_coords_and_diameter(fn, coordinate_list, keyfile_csv)
+                ''' converting pixel lvot predicitons to cm '''
+                pred_diam_cm, diff_diam_cm = predict_cm_coords_and_diameter(fn, pred_coordinate_list, true_coordinate_list, keyfile_csv)
 
                 ''' calculate total and median for lvot diameter cm '''
-                absdiff_diam_cm = math.sqrt(diff_diam_cm**2)
+                absdiff_diam_cm = abs(diff_diam_cm)
                 total_lvot_diam_absdiff_cm += absdiff_diam_cm
                 median_lvot_diam_absdiff_cm = np.append(median_lvot_diam_absdiff_cm, absdiff_diam_cm)
 
@@ -486,15 +498,15 @@ if __name__ == "__main__":
                 absdiff_diam_cm = '{:.4f}'.format(absdiff_diam_cm)
                 pred_diam_cm = '{:.4f}'.format(pred_diam_cm)
                 patient_id, measure_type, view_type, img_quality, gt_quality = fn.rsplit('_', 4)
-                file.write(f'{fn},{measure_type},{view_type},{img_quality},{gt_quality},{diff_diam_pix},{absdiff_diam_pix},{diff_diam_cm},{absdiff_diam_cm},{pred_diam_cm}\n')
+                file.write(f'{fn},{measure_type},{view_type},{img_quality},{gt_quality},{diff_diam_pix},{diff_diam_cm},{pred_diam_cm}\n')
 
                 ''' plotting and saving coordinate overlay on original image with gt '''
-                pred_plot = predict_plot_on_image(img_pil, masks_tensors_true[0], masks_tensors_true[1], coordinate_list, plot_gt=compare_with_ground_truth)
+                pred_plot = predict_plot_on_image(img_pil, true_coordinate_list, pred_coordinate_list, plot_gt=compare_with_ground_truth)
                 pred_plot.save(path.join(predictions_output, f'{str(absdiff_diam_pix)}_{out_fn}'))
 
             else:
                 ''' just save coordinate overlay on original image '''
-                pred_plot = predict_plot_on_image(img_pil, masks_tensors_true[0], masks_tensors_true[1], coordinate_list, plot_gt=compare_with_ground_truth)
+                pred_plot = predict_plot_on_image(img_pil, true_coordinate_list, pred_coordinate_list, plot_gt=compare_with_ground_truth)
                 pred_plot.save(path.join(predictions_output, out_fn))
 
             logging.info("Mask saved to {}".format(out_files[i]))
