@@ -326,7 +326,7 @@ def predict_cm_coords_and_diameter(file_id, pred_coord_list_pix, true_coord_list
                 ''' caluculate pixel diameter, negative number indicate too short diameter, positive number indicate too long diameter '''
                 pred_diam_pix = calculate_lvot_diameter(pred_coord_list_pix[0][0], pred_coord_list_pix[0][1], pred_coord_list_pix[1][0], pred_coord_list_pix[1][1])
                 true_diam_pix = calculate_lvot_diameter(true_coord_list_pix[0][0], true_coord_list_pix[0][1], true_coord_list_pix[1][0], true_coord_list_pix[1][1])
-                diff_diam_pix = pred_diam_pix - true_diam_pix
+                #diff_diam_pix = pred_diam_pix - true_diam_pix
 
                 ''' convert pixel to cm with scanconverted parameters '''
                 pred_coord_list_pix = np.array(pred_coord_list_pix)
