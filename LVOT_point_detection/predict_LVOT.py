@@ -19,58 +19,7 @@ import ast
 
 sys.path.insert(0, '..')
 from networks.resnet50_torchvision import fcn_resnet50
-
-
-''' deprecated as all is done in loss function now '''
-def coords_from_pred(pred_tensor):
-    coordinate_list = []
-    for batch in pred_tensor:
-        for channel in batch:
-            x_size = channel.shape[-1]
-            y_size = channel.shape[-2]
-            soft_argmax_x = torch.zeros((y_size, x_size)).cuda()
-            soft_argmax_y = torch.zeros((y_size, x_size)).cuda()
-
-            for p in range(y_size):
-                soft_argmax_y[p, :] = (p + 1) / y_size
-
-            for j in range(x_size):
-                soft_argmax_x[:, j] = (j + 1) / x_size
-
-            softmax = nn.Softmax(0)
-            pred_softmax = softmax(channel.view(-1)).view(channel.shape)
-            pred_x_coord = torch.sum(pred_softmax * soft_argmax_x).cuda()
-            pred_y_coord = torch.sum(pred_softmax * soft_argmax_y).cuda()
-
-            ''' alternative argmax method of getting max value, but this is not the one used in training '''
-            #coorda = torch.argmax(point)
-            #true_x_coord = ((coord_argmax % x_size + 1).float() / x_size)
-            #true_y_coord = ((coord_argmax // x_size + 1).float() / y_size)
-
-            ''' converting each coordinate value back into index which requires - 1 '''
-            x_index = float(pred_x_coord.item() * x_size - 1)
-            y_index = float(pred_y_coord.item() * y_size - 1)
-            coordinate_list.append([x_index, y_index])
-
-    ''' output is in the format [[x1, y1], [x2, y2]] '''
-    return coordinate_list
-
-
-''' deprecated as all is done in loss function now '''
-def coords_from_true_mask(mask_tensor):
-    ''' converts true tensors into coordinates, more efficient as it only uses argmax compared to pred '''
-    x_size = mask_tensor.shape[-1]
-    y_size = mask_tensor.shape[-2]
-
-    true_coord = torch.argmax(mask_tensor)
-    true_x_tensor = ((true_coord % x_size + 1).float() / x_size)
-    true_y_tensor = ((true_coord // x_size + 1).float() / y_size)
-
-    ''' adds -1 as the smallest index is 0 and not 1 '''
-    true_x_int = round(true_x_tensor.item() * x_size - 1)
-    true_y_int = round(true_y_tensor.item() * y_size - 1)
-
-    return true_x_int, true_y_int
+from dicom_extraction_utils_GE.LVOT_coords import get_cm_coordinates
 
 
 def predict_tensor(net,
@@ -272,37 +221,6 @@ def calculate_lvot_diameter(x1, y1, x2, y2):
 
     return diam
 
-
-def pixel_too_scancovert(pixel_coords, sc_params):
-    ''' input is np, the format of pixel_coords is [[x1, y1] [x2, y2]] '''
-    ''' reversal of pixel coordinates back into GE scanconverted parameters for final lvot diameter calculation '''
-
-    #print("x range")
-    #print(sc_params["xmin"], sc_params["xmax"])
-    #print("y range")
-    #print(sc_params["ymin"], sc_params["ymax"])
-    #print("siz)")
-    #print(sc_params["shape"])
-
-    sub_factor = np.array([sc_params["ymin"], -1 * sc_params["xmax"]])
-    norm_factor = np.array([sc_params["shape"][0] / (sc_params["ymax"] - sc_params["ymin"]),
-                            sc_params["shape"][1] / (sc_params["xmax"] - sc_params["xmin"])])
-
-    pixel_coords = np.array(pixel_coords)
-    pixel_coords = pixel_coords[:, ::-1]
-
-    pixel_coords /= norm_factor
-    pixel_coords += sub_factor
-
-    pixel_coords /= np.array([1, -1])
-    sc_coords = pixel_coords.copy()[:, ::-1]
-
-    ''' converts meters to cm '''
-    coords_cm = sc_coords * 100
-
-    return coords_cm
-
-
 def predict_cm_coords_and_diameter(file_id, pred_coord_list_pix, true_coord_list_pix, keyfile_csv):
     ''' input format of pix_coords is [[x1_cm, y1_pix] [x2, y2_pix]] '''
 
@@ -330,10 +248,10 @@ def predict_cm_coords_and_diameter(file_id, pred_coord_list_pix, true_coord_list
 
                 ''' convert pixel to cm with scanconverted parameters '''
                 pred_coord_list_pix = np.array(pred_coord_list_pix)
-                pred_coords_cm = pixel_too_scancovert(pred_coord_list_pix, sc_param)
+                pred_coords_cm = get_cm_coordinates(pred_coord_list_pix, sc_param)
 
                 true_coord_list_pix = np.array(true_coord_list_pix)
-                true_coords_cm = pixel_too_scancovert(true_coord_list_pix, sc_param)
+                true_coords_cm = get_cm_coordinates(true_coord_list_pix, sc_param)
 
                 ''' caluculate cm diameter, negative number indicate too short diameter, positive number indicate too long diameter '''
                 pred_diam_cm = calculate_lvot_diameter(pred_coords_cm[0][0], pred_coords_cm[0][1], pred_coords_cm[1][0], pred_coords_cm[1][1])
@@ -359,7 +277,7 @@ def predict_cm_coords_and_diameter(file_id, pred_coord_list_pix, true_coord_list
 
         if found == False:
             print(file_id, 'NOT FOUND')
-            return 'nan', 'nan', 'nan', 'nan'
+            return 'nan', 'nan'
 
 def get_output_filenames(in_file):
     in_files = in_file
@@ -374,7 +292,7 @@ def get_output_filenames(in_file):
 if __name__ == "__main__":
     
     ''' define model name, prediction dataset and model parameters '''
-    keyfile_csv = 'H:/ML_LVOT/txt_keyfile_and_duplicate/keyfile_1424_all_data.csv'
+    keyfile_csv = r'H:/ML_LVOT/txt_keyfile_and_duplicate/keyfile_GE1424_QC.csv'
     model_file = 'Aug16_00-54-49_RES50_DSNT_ADAM_T-AVA1314Y1_HML_V-_EP30_LR0.001_BS20_SCL1.pth'
     data_name = 'AVA1314Y1_HML'
     n_channels = 1
@@ -525,3 +443,57 @@ if __name__ == "__main__":
             os.rename(path.join(predictions_output, 'temp2.txt'), path.join(predictions_output, f'AVG_LVOTD_CM_{avg_lvot_diam_absdiff_cm}_DATA_{model_name}.txt'))
             os.rename(path.join(predictions_output, 'temp3.txt'), path.join(predictions_output, f'MEDIAN_LVOTD_PIX_{np.median(median_lvot_diam_absdiff_pix)}_DATA_{model_name}.txt'))
             os.rename(path.join(predictions_output, 'temp4.txt'), path.join(predictions_output, f'MEDIAN_LVOTD_CM_{np.median(median_lvot_diam_absdiff_cm)}_DATA_{model_name}.txt'))
+
+
+
+
+''' deprecated as all is done in loss function now '''
+def coords_from_pred(pred_tensor):
+    coordinate_list = []
+    for batch in pred_tensor:
+        for channel in batch:
+            x_size = channel.shape[-1]
+            y_size = channel.shape[-2]
+            soft_argmax_x = torch.zeros((y_size, x_size)).cuda()
+            soft_argmax_y = torch.zeros((y_size, x_size)).cuda()
+
+            for p in range(y_size):
+                soft_argmax_y[p, :] = (p + 1) / y_size
+
+            for j in range(x_size):
+                soft_argmax_x[:, j] = (j + 1) / x_size
+
+            softmax = nn.Softmax(0)
+            pred_softmax = softmax(channel.view(-1)).view(channel.shape)
+            pred_x_coord = torch.sum(pred_softmax * soft_argmax_x).cuda()
+            pred_y_coord = torch.sum(pred_softmax * soft_argmax_y).cuda()
+
+            ''' alternative argmax method of getting max value, but this is not the one used in training '''
+            # coorda = torch.argmax(point)
+            # true_x_coord = ((coord_argmax % x_size + 1).float() / x_size)
+            # true_y_coord = ((coord_argmax // x_size + 1).float() / y_size)
+
+            ''' converting each coordinate value back into index which requires - 1 '''
+            x_index = float(pred_x_coord.item() * x_size - 1)
+            y_index = float(pred_y_coord.item() * y_size - 1)
+            coordinate_list.append([x_index, y_index])
+
+    ''' output is in the format [[x1, y1], [x2, y2]] '''
+    return coordinate_list
+
+
+''' deprecated as all is done in loss function now '''
+def coords_from_true_mask(mask_tensor):
+    ''' converts true tensors into coordinates, more efficient as it only uses argmax compared to pred '''
+    x_size = mask_tensor.shape[-1]
+    y_size = mask_tensor.shape[-2]
+
+    true_coord = torch.argmax(mask_tensor)
+    true_x_tensor = ((true_coord % x_size + 1).float() / x_size)
+    true_y_tensor = ((true_coord // x_size + 1).float() / y_size)
+
+    ''' adds -1 as the smallest index is 0 and not 1 '''
+    true_x_int = round(true_x_tensor.item() * x_size - 1)
+    true_y_int = round(true_y_tensor.item() * y_size - 1)
+
+    return true_x_int, true_y_int
