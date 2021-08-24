@@ -260,8 +260,8 @@ def predict_cm_coords_and_diameter(file_id, pred_coord_list_pix, true_coord_list
 
                 #print('\nfrom csv true coords pix: ', x2_pix, y2_pix, x1_pix, y1_pix)
                 #print('from calculated true coords pix', true_coord_list_pix[0][0], true_coord_list_pix[0][1], true_coord_list_pix[1][0], true_coord_list_pix[1][1])
-                print('\nfrom csv true coords cm: ', x2_cm, y2_cm, x1_cm, y1_cm)
-                print('from calculated true coords cm', true_coords_cm[0][0], true_coords_cm[0][1], true_coords_cm[1][0], true_coords_cm[1][1])
+                #print('\nfrom csv true coords cm: ', x2_cm, y2_cm, x1_cm, y1_cm)
+                #print('from calculated true coords cm', true_coords_cm[0][0], true_coords_cm[0][1], true_coords_cm[1][0], true_coords_cm[1][1])
 
                 '''
                 #OBS dette er fordi enkelte koordinater var reversert lagret i echopac der x2_pix, y2_pix kommer først. har korrigert for dette men det blir et nytt problem når man bruker scanconvert
@@ -294,7 +294,7 @@ if __name__ == "__main__":
     ''' define model name, prediction dataset and model parameters '''
     keyfile_csv = r'H:/ML_LVOT/txt_keyfile_and_duplicate/keyfile_GE1424_QC.csv'
     model_file = 'Aug16_00-54-49_RES50_DSNT_ADAM_T-AVA1314Y1_HML_V-_EP30_LR0.001_BS20_SCL1.pth'
-    data_name = 'AVA1314Y1_HML'
+    data_name = 'AVA1314X5_HMLHML'
     n_channels = 1
     n_classes = 2
     scaling = 1

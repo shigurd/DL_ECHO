@@ -6,7 +6,7 @@ from data_partition_utils.create_augmentation_imgs_and_masks import create_augme
 if __name__ == '__main__':
     ''' create augmentations for the entire complete dataset '''
 
-    dataset_name = 'AVA1314Y1_HML'
+    dataset_name = 'AVA1314X5_HMLHML'
     n_augmention_copies = 4
 
     datasets_dir = 'datasets'

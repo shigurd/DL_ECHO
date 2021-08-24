@@ -8,10 +8,10 @@ if __name__ == '__main__':
     ''' remove tags from train folders '''
 
     # data_names = ['AVA1314Y1_HML_K1', 'AVA1314Y1_HML_K2', 'AVA1314Y1_HML_K3', 'AVA1314Y1_HML_K4', 'AVA1314Y1_HML_K5']
-    data_names = ['AVA1314Y1_HML']
+    data_names = ['AVA1314X5_HMLHML']
     is_kfold = False
-    tags_to_remove = ['LOW']
-    new_data_name = 'HM'
+    tags_to_remove = ['ILOW', 'MLOW']
+    new_data_name = 'HMHM'
 
     input_dir = path.join('data', 'train')
     output_dir = path.join('data', 'train')
