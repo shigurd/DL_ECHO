@@ -292,8 +292,8 @@ def get_output_filenames(in_file):
 if __name__ == "__main__":
     
     ''' define model name, prediction dataset and model parameters '''
-    keyfile_csv = r'H:/ML_LVOT/txt_keyfile_and_duplicate/keyfile_GE1424_QC.csv'
-    model_file = 'Aug16_00-54-49_RES50_DSNT_ADAM_T-AVA1314Y1_HML_V-_EP30_LR0.001_BS20_SCL1.pth'
+    keyfile_csv = r'H:/ML_LVOT/backup_keyfile_and_duplicate/keyfile_GE1424_QC.csv'
+    model_file = 'Aug25_01-17-15_RES50_DSNT_ADAM_T-AVA1314X5_HMHM_MA4_V-_EP30_LR0.001_BS20_SCL1.pth'
     data_name = 'AVA1314X5_HMLHML'
     n_channels = 1
     n_classes = 2
@@ -415,16 +415,16 @@ if __name__ == "__main__":
                 diff_diam_cm = '{:.4f}'.format(diff_diam_cm)
                 absdiff_diam_cm = '{:.4f}'.format(absdiff_diam_cm)
                 pred_diam_cm = '{:.4f}'.format(pred_diam_cm)
-                patient_id, measure_type, view_type, img_quality, gt_quality = fn.rsplit('_', 4)
+                patient_id, measure_type, view_type, img_quality, gt_quality = fn.rsplit('.', 1)[0].rsplit('_', 4)
                 file.write(f'{fn},{measure_type},{view_type},{img_quality},{gt_quality},{diff_diam_pix},{diff_diam_cm},{pred_diam_cm}\n')
 
                 ''' plotting and saving coordinate overlay on original image with gt '''
-                pred_plot = predict_plot_on_image(img_pil, true_coordinate_list, pred_coordinate_list, plot_gt=compare_with_ground_truth)
+                pred_plot = predict_plot_on_image(img_pil, pred_coordinate_list, true_coordinate_list, plot_gt=compare_with_ground_truth)
                 pred_plot.save(path.join(predictions_output, f'{str(absdiff_diam_pix)}_{out_fn}'))
 
             else:
                 ''' just save coordinate overlay on original image '''
-                pred_plot = predict_plot_on_image(img_pil, true_coordinate_list, pred_coordinate_list, plot_gt=compare_with_ground_truth)
+                pred_plot = predict_plot_on_image(img_pil, pred_coordinate_list, true_coordinate_list, plot_gt=compare_with_ground_truth)
                 pred_plot.save(path.join(predictions_output, out_fn))
 
             logging.info("Mask saved to {}".format(out_files[i]))

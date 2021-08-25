@@ -6,7 +6,7 @@ from glob import glob
 if __name__ == '__main__':
 
     dataset_name = 'GE1424X5_HMLHML'
-    keyfile_QC_path = r'H:\ML_LVOT\txt_keyfile_and_duplicate\keyfile_GE1424_QC.csv'
+    keyfile_QC_path = r'H:\ML_LVOT\backup_keyfile_and_duplicate\keyfile_GE1424_QC.csv'
     imgs_dir = path.join('datasets', 'imgs', dataset_name)
     masks_dir = path.join('datasets', 'masks', dataset_name)
 
