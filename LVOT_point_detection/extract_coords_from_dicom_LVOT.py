@@ -12,7 +12,7 @@ if __name__ == "__main__":
     keyfile_name = 'keyfile_GE1424.csv'
 
     '''define input dir and parameters for mask '''
-    input_dir = r'H:\ML_LVOT\dcm_lvot_backup\GE1424_lvot_dcm'
+    input_dcm_dir = r'H:\ML_LVOT\dcm_lvot_backup\GE1424_lvot_dcm'
     height = 256
     width = 256
     with_gaussian = True
@@ -36,5 +36,5 @@ if __name__ == "__main__":
                  'y_inferior_pixel', 'x_superior_cm', 'y_superior_cm', 'x_inferior_cm',
                  'y_inferior_cm', 'lvot_diameter_cm', 'SCparams'])
 
-    iterate_folders(input_dir, output_imgs_dir, output_masks_dir, height, width, with_gaussian, x_warp, y_warp, writer)
+    iterate_folders(input_dcm_dir, output_imgs_dir, output_masks_dir, height, width, with_gaussian, x_warp, y_warp, writer)
     keyfile_log.close()
