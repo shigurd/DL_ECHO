@@ -242,7 +242,7 @@ if __name__ == '__main__':
     
     training_parameters = dict (
         data_train_and_validation = [
-            ['CAMUS1800_HM_MA4', '']
+            ['GE1956_HMLHML_MA4', '']
             ],
         epochs=[30],
         learning_rate=[0.001],

@@ -7,7 +7,7 @@ if __name__ == '__main__':
     
     ''' create augmentations for the entire complete dataset '''
 
-    dataset_name = 'CAMUS1800_HML'
+    dataset_name = 'GE1956_HMLHML'
     n_augmention_copies = 4
 
     datasets_dir = 'datasets'

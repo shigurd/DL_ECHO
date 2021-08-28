@@ -114,15 +114,15 @@ def endocard_epicard_to_tensor(mask_pil):
 if __name__ == "__main__":
     
     ''' define model name, prediction dataset and model parameters '''
-    model_file = 'Aug13_00-08-11_RES50_DICBCE_ADAM_T-CAMUS1800_HM_MA4_V-_EP30_LR0.001_BS20_SCL1.pth'
-    data_name = 'CAMUS1800_HML'
+    model_file = 'Aug28_14-10-36_RES50_DICBCE_ADAM_T-GE1956_HMLHML_MA4_V-_EP30_LR0.001_BS20_SCL1.pth'
+    data_name = 'GE1956_HMLHML'
     n_channels = 1
     n_classes = 1
     scaling = 1
     mask_threshold = 0.5
     mid_systole = True
-    compare_with_ground_truth = True
-    convert_to_epicard_and_endocard = True
+    compare_with_ground_truth = False
+    convert_to_epicard_and_endocard = False
 
     model_path = path.join('checkpoints', model_file)
     dir_img = path.join('data', 'test', 'imgs', data_name)
