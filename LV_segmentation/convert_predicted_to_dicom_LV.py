@@ -13,6 +13,7 @@ if __name__ == "__main__":
     keyfile_csv = r'H:\ML_LV\backup_keyfiles\keyfile_GE1956_QC.csv'
     input_dcm_dir = r'H:\ML_LV\backup_dcm\GE2023_dcm'
     input_masks_dir = path.join('predictions', prediction_masks)
+
     output_dcm_original_dir = path.join('predictions_dicom', prediction_masks, 'original')
     output_dcm_predicted_dir = path.join('predictions_dicom', prediction_masks, 'predicted')
     os.mkdir(path.join('predictions_dicom', prediction_masks))

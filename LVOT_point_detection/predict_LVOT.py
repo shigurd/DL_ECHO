@@ -3,22 +3,21 @@ import os
 import os.path as path
 import sys
 from glob import glob
-
 import numpy as np
 import torch
 import torch.nn as nn
 from PIL import Image
 from tqdm import tqdm
-
-from utils.dataloader_LVOT import BasicDataset
-from utils.point_losses_LVOT import PixelDSNTDistanceDoublePredict
-
 import math
 import csv
 import ast
 
+from utils.dataloader_LVOT import BasicDataset
+from utils.point_losses_LVOT import PixelDSNTDistanceDoublePredict
+
 sys.path.insert(0, '..')
-from networks.resnet50_torchvision import fcn_resnet50
+from networks.resnet50_torchvision import fcn_resnet50, fcn_resnet101, deeplabv3_resnet50, deeplabv3_resnet101
+from networks.unet import UNet
 from dicom_extraction_utils_GE.LVOT_coords import get_cm_coordinates
 
 
@@ -331,7 +330,7 @@ if __name__ == "__main__":
     logging.info("Checkpoint loaded !")
     
     if compare_with_ground_truth == True:
-        file = open(path.join(predictions_output, f'COORDDATA_{model_name}.txt'), 'w+')
+        file = open(path.join(predictions_output, f'COORD_DATA_{model_name}.txt'), 'w+')
         file.write('file_name,measure_type,view_type,img_quality,gt_quality,diff_diam_pix,diff_diam_cm,diam_cm\n')
         file1 = open(path.join(predictions_output, 'temp.txt'), 'w+')
         file1.close()
@@ -438,11 +437,11 @@ if __name__ == "__main__":
             avg_sum_ed_pix = '{:.4f}'.format(avg_sum_ed_pix)
             avg_lvot_diam_absdiff_pix = '{:.4f}'.format(avg_lvot_diam_absdiff_pix)
             avg_lvot_diam_absdiff_cm = '{:.4f}'.format(avg_lvot_diam_absdiff_cm)
-            os.rename(path.join(predictions_output, 'temp.txt'), path.join(predictions_output, f'AVG_SUM_ED_{avg_sum_ed_pix}_DATA_{model_name}.txt'))
-            os.rename(path.join(predictions_output, 'temp1.txt'), path.join(predictions_output, f'AVD_LVOTD_PIX_{avg_lvot_diam_absdiff_pix}_DATA_{model_name}.txt'))
-            os.rename(path.join(predictions_output, 'temp2.txt'), path.join(predictions_output, f'AVG_LVOTD_CM_{avg_lvot_diam_absdiff_cm}_DATA_{model_name}.txt'))
-            os.rename(path.join(predictions_output, 'temp3.txt'), path.join(predictions_output, f'MEDIAN_LVOTD_PIX_{np.median(median_lvot_diam_absdiff_pix)}_DATA_{model_name}.txt'))
-            os.rename(path.join(predictions_output, 'temp4.txt'), path.join(predictions_output, f'MEDIAN_LVOTD_CM_{np.median(median_lvot_diam_absdiff_cm)}_DATA_{model_name}.txt'))
+            os.rename(path.join(predictions_output, 'temp.txt'), path.join(predictions_output, f'AVG_SUM_ED_PIX_{avg_sum_ed_pix}_{model_name}.txt'))
+            os.rename(path.join(predictions_output, 'temp1.txt'), path.join(predictions_output, f'AVD_LVOTD_PIX_{avg_lvot_diam_absdiff_pix}_{model_name}.txt'))
+            os.rename(path.join(predictions_output, 'temp2.txt'), path.join(predictions_output, f'AVG_LVOTD_CM_{avg_lvot_diam_absdiff_cm}_{model_name}.txt'))
+            os.rename(path.join(predictions_output, 'temp3.txt'), path.join(predictions_output, f'MEDIAN_LVOTD_PIX_{np.median(median_lvot_diam_absdiff_pix)}_{model_name}.txt'))
+            os.rename(path.join(predictions_output, 'temp4.txt'), path.join(predictions_output, f'MEDIAN_LVOTD_CM_{np.median(median_lvot_diam_absdiff_cm)}_{model_name}.txt'))
 
 
 

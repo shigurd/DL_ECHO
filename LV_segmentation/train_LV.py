@@ -15,9 +15,9 @@ from utils.segmentation_losses_LV import DiceSoftBCELoss
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader
 
-#from torchvision.models.segmentation import fcn_resnet50
 sys.path.insert(0, '..')
-from networks.resnet50_torchvision import fcn_resnet50
+from networks.resnet50_torchvision import fcn_resnet50, fcn_resnet101, deeplabv3_resnet50, deeplabv3_resnet101
+from networks.unet import UNet
 
 from itertools import product 
 from datetime import datetime
