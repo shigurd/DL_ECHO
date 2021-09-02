@@ -18,6 +18,7 @@ from torch.utils.data import DataLoader
 sys.path.insert(0, '..')
 from networks.resnet50_torchvision import fcn_resnet50, fcn_resnet101, deeplabv3_resnet50, deeplabv3_resnet101
 from networks.unet import UNet
+from networks.unet_plusplus import NestedUNet
 
 from itertools import product 
 from datetime import datetime
@@ -67,8 +68,7 @@ def train_net(net,
               batch_accumulation=1,
               img_scale=1,
               transfer_learning_path='',
-              mid_systole_only=False,
-              validation_target=''):
+              mid_systole_only=False):
 
     ''' define optimizer and loss '''
     #optimizer = optim.RMSprop(net.parameters(), lr=learning_rate, weight_decay=1e-8, momentum=0.9)
@@ -97,7 +97,7 @@ def train_net(net,
     n_train = len(train)
     train_loader = DataLoader(train, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True)
     
-    if validation_target != '':
+    if data_train_and_validation[1] != '':
         val = BasicDataset(validate_imgs_dir, validate_masks_dir, img_scale)
         n_val = len(val)
         val_loader = DataLoader(val, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True, drop_last=True)
@@ -105,14 +105,14 @@ def train_net(net,
     ''' make summary writer file with timestamp '''
     time_stamp = datetime.now().strftime('%b%d_%H-%M-%S')
     #hostname = socket.gethostname()
-    if validation_target != '':
+    if data_train_and_validation[1] != '':
         train_and_val = f'T-{data_train_and_validation[0]}_V-NONE'
     else:
         train_and_val = f'T-{data_train_and_validation[0]}_V-{data_train_and_validation[1]}'
     true_batch_size = batch_size * batch_accumulation
     writer = SummaryWriter(path.join(summary_writer_dir, f'{time_stamp}_{model_name}_{train_and_val}_{train_type}{epochs}_LR{learning_rate}_BS{true_batch_size}_SCL{img_scale}'))
 
-    if validation_target != '':
+    if data_train_and_validation[1] != '':
         logging.info(f'''Starting training:
             Training with:      {data_train_and_validation[0]}
             Training size:      {n_train}
@@ -130,7 +130,7 @@ def train_net(net,
         logging.info(f'''Starting training:
             Training with:      {data_train_and_validation[0]}
             Training size:      {n_train}
-            Validation with:    {validation_target}
+            Validation with:    {data_train_and_validation[1]}
             Epochs:             {epochs}
             Batch size:         {batch_size} x {batch_accumulation}
             Learning rate:      {learning_rate}
@@ -181,7 +181,7 @@ def train_net(net,
                     loss_batch = 0
                     
                     # validates every 10% of the epoch
-                    if global_step % ((n_train / 10) // true_batch_size) == 0 and validation_target != '':
+                    if global_step % ((n_train / 10) // true_batch_size) == 0 and data_train_and_validation[1] != '':
                         
                         ''' show prediction in heatmap format '''
                         preds_heatmap = show_preds_heatmap(preds['out'])
@@ -236,13 +236,17 @@ if __name__ == '__main__':
     summary_writer_dir = 'runs'
     
     ''' define model_name before running '''
-    model_name = 'RES50_DICBCE_ADAM'
+    model_name = 'R50DLV3_DICBCE_ADAM'
     n_classes = 1
-    n_channels = 1
+    n_channels = 3
     
-    training_parameters = dict (
+    training_parameters = dict(
         data_train_and_validation = [
-            ['GE1956_HMLHML_MA4', '']
+            ['GE1956_HMHM_MA4_K1', 'GE1956_HMHM_K1'],
+            ['GE1956_HMHM_MA4_K2', 'GE1956_HMHM_K2'],
+            ['GE1956_HMHM_MA4_K3', 'GE1956_HMHM_K3'],
+            ['GE1956_HMHM_MA4_K4', 'GE1956_HMHM_K4'],
+            ['GE1956_HMHM_MA4_K5', 'GE1956_HMHM_K5']
             ],
         epochs=[30],
         learning_rate=[0.001],
@@ -250,7 +254,7 @@ if __name__ == '__main__':
         batch_accumulation=[2],
         img_scale=[1],
         transfer_learning_path=[''],
-        mid_systole_only=[True]
+        mid_systole_only=[False]
     )
     
     ''' used to train multiple models in succession. add variables to arrays to make more combinations '''
@@ -269,9 +273,8 @@ if __name__ == '__main__':
         
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         logging.info(f'Using device {device}')
-        
-        #net = fcn_resnet50(pretrained=False, progress=True, num_classes=n_classes, aux_loss=None)
-        net = fcn_resnet50(pretrained=False, progress=True, in_channels=n_channels, num_classes=n_classes, aux_loss=None)
+
+        net = deeplabv3_resnet50(pretrained=False, progress=True, in_channels=n_channels, num_classes=n_classes, aux_loss=None)
 
         logging.info(f'Network:\n'
                      f'\t{n_channels} input channels\n'
@@ -299,8 +302,7 @@ if __name__ == '__main__':
                       batch_accumulation=batch_accumulation,
                       img_scale=img_scale,
                       transfer_learning_path=transfer_learning_path,
-                      mid_systole_only=mid_systole_only,
-                      validation_target=data_train_and_validation[1])
+                      mid_systole_only=mid_systole_only)
         except KeyboardInterrupt:
             torch.save(net.state_dict(), 'INTERRUPTED.pth')
             logging.info('Saved interrupt')

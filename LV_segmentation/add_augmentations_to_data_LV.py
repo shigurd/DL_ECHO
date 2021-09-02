@@ -7,9 +7,9 @@ if __name__ == '__main__':
 
     ''' create train data with augmentations '''
 
-    #data_names = ['CAMUS1800_HML_K1', 'CAMUS1800_HML_K2', 'CAMUS1800_HML_K3', 'CAMUS1800_HML_K4', 'CAMUS1800_HML_K5']
-    data_names =['GE1956_HMLHML']
-    is_kfold = False
+    data_names = ['GE1956_HMHM_K1', 'GE1956_HMHM_K2', 'GE1956_HMHM_K3', 'GE1956_HMHM_K4', 'GE1956_HMHM_K5']
+    #data_names =['GE1956_HMLHML']
+    is_kfold = True
     aug_name = 'GE1956_HMLHML_MA4'
 
     augmentation_dir = 'augmentations'

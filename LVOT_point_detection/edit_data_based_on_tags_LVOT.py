@@ -20,7 +20,7 @@ if __name__ == '__main__':
     if is_kfold == True:
         ''' remove tags from validate folders '''
 
-        data_names_validate = [data_name.split("_", 1)[-1] for data_name in data_names]
+        data_names_validate = data_names
 
         input_dir2 = path.join('data', 'validate')
         output_dir2 = path.join('data', 'validate')

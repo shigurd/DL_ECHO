@@ -143,7 +143,7 @@ def deeplabv3_resnet50(pretrained=False, progress=True, in_channels=3,
         num_classes (int): number of output classes of the model (including the background)
         aux_loss (bool): If True, it uses an auxiliary loss
     """
-    return _load_model('deeplabv3', 'resnet50', pretrained, in_channels, progress, num_classes, aux_loss, **kwargs)
+    return _load_model('deeplabv3', 'resnet50', pretrained, progress, in_channels, num_classes, aux_loss, **kwargs)
 
 
 def deeplabv3_resnet101(pretrained=False, progress=True, in_channels=3,
@@ -157,7 +157,7 @@ def deeplabv3_resnet101(pretrained=False, progress=True, in_channels=3,
         num_classes (int): The number of classes
         aux_loss (bool): If True, include an auxiliary classifier
     """
-    return _load_model('deeplabv3', 'resnet101', pretrained, in_channels, progress, num_classes, aux_loss, **kwargs)
+    return _load_model('deeplabv3', 'resnet101', pretrained, progress, in_channels, num_classes, aux_loss, **kwargs)
 
 
 def deeplabv3_mobilenet_v3_large(pretrained=False, progress=True,

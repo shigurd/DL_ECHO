@@ -7,9 +7,9 @@ if __name__ == '__main__':
 
     ''' remove tags from train folders '''
 
-    # data_names = ['CAMUS1800_HML_K1', 'CAMUS1800_HML_K2', 'CAMUS1800_HML_K3', 'CAMUS1800_HML_K4', 'CAMUS1800_HML_K5']
-    data_names = ['GE1956_HMLHML']
-    is_kfold = False
+    data_names = ['GE1956_HMLHML_K1', 'GE1956_HMLHML_K2', 'GE1956_HMLHML_K3', 'GE1956_HMLHML_K4', 'GE1956_HMLHML_K5']
+    #data_names = ['GE1956_HMLHML']
+    is_kfold = True
     tags_to_remove = ['ILOW', 'MLOW']
     new_data_name = 'HMHM'
 
@@ -20,7 +20,7 @@ if __name__ == '__main__':
     if is_kfold == True:
         ''' remove tags from validate folders '''
 
-        data_names_validate = [data_name.split("_", 1)[-1] for data_name in data_names]
+        data_names_validate = data_names
 
         input_dir2 = path.join('data', 'validate')
         output_dir2 = path.join('data', 'validate')
