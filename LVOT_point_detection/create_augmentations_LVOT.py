@@ -7,7 +7,7 @@ if __name__ == '__main__':
     ''' create augmentations for the entire complete dataset '''
 
     dataset_name = 'AVA1314X5_HMLHML'
-    n_augmention_copies = 4
+    n_augmention_copies = 8
 
     datasets_dir = 'datasets'
     augmentations_dir_output = 'augmentations'

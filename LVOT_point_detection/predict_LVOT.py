@@ -342,10 +342,13 @@ if __name__ == "__main__":
         file4.close()
         file5 = open(path.join(predictions_output, 'temp4.txt'), 'w+')
         file5.close()
+        file6 = open(path.join(predictions_output, 'temp5.txt'), 'w+')
+        file6.close()
 
         ''' all values here are in absolute values '''
         median_lvot_diam_absdiff_pix = np.array([])
         median_lvot_diam_absdiff_cm = np.array([])
+        median_sum_ed_pix = np.array([])
         total_i_ed_pix = 0
         total_s_ed_pix = 0
         total_sum_ed_pix = 0
@@ -398,6 +401,7 @@ if __name__ == "__main__":
                 total_sum_ed_pix += ed_tot_pix
                 total_lvot_diam_absdiff_pix += absdiff_diam_pix
 
+                median_sum_ed_pix = np.appned(median_sum_ed_pix, total_sum_ed_pix)
                 median_lvot_diam_absdiff_pix = np.append(median_lvot_diam_absdiff_pix, absdiff_diam_pix)
 
                 ''' converting pixel lvot predicitons to cm '''
@@ -438,10 +442,11 @@ if __name__ == "__main__":
             avg_lvot_diam_absdiff_pix = '{:.4f}'.format(avg_lvot_diam_absdiff_pix)
             avg_lvot_diam_absdiff_cm = '{:.4f}'.format(avg_lvot_diam_absdiff_cm)
             os.rename(path.join(predictions_output, 'temp.txt'), path.join(predictions_output, f'AVG_SUM_ED_PIX_{avg_sum_ed_pix}_{model_name}.txt'))
-            os.rename(path.join(predictions_output, 'temp1.txt'), path.join(predictions_output, f'AVD_LVOTD_PIX_{avg_lvot_diam_absdiff_pix}_{model_name}.txt'))
+            os.rename(path.join(predictions_output, 'temp1.txt'), path.join(predictions_output, f'AVG_LVOTD_PIX_{avg_lvot_diam_absdiff_pix}_{model_name}.txt'))
             os.rename(path.join(predictions_output, 'temp2.txt'), path.join(predictions_output, f'AVG_LVOTD_CM_{avg_lvot_diam_absdiff_cm}_{model_name}.txt'))
-            os.rename(path.join(predictions_output, 'temp3.txt'), path.join(predictions_output, f'MEDIAN_LVOTD_PIX_{np.median(median_lvot_diam_absdiff_pix)}_{model_name}.txt'))
-            os.rename(path.join(predictions_output, 'temp4.txt'), path.join(predictions_output, f'MEDIAN_LVOTD_CM_{np.median(median_lvot_diam_absdiff_cm)}_{model_name}.txt'))
+            os.rename(path.join(predictions_output, 'temp3.txt'), path.join(predictions_output, f'MEDIAN_LVOTD_PIX_{"{:.4f}".format(np.median(median_lvot_diam_absdiff_pix))}_{model_name}.txt'))
+            os.rename(path.join(predictions_output, 'temp4.txt'), path.join(predictions_output, f'MEDIAN_LVOTD_CM_{"{:.4f}".format(np.median(median_lvot_diam_absdiff_cm))}_{model_name}.txt'))
+            os.rename(path.join(predictions_output, 'temp5.txt'), path.join(predictions_output, f'MEDIAN_SUM_ED_PIX_{"{:.4f}".format(np.median(median_sum_ed_pix))}_{model_name}.txt'))
 
 
 

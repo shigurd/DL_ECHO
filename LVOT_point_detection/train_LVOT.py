@@ -252,7 +252,7 @@ if __name__ == '__main__':
     
     training_parameters = dict(
         data_train_and_validation = [
-            ['AVA1314X5_HMHM_MA4', '']
+            ['AVA1314X5_HMHM_MA8', '']
             ],
         epochs=[30],
         learning_rate=[0.001],

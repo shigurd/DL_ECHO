@@ -9,7 +9,7 @@ if __name__ == '__main__':
     #data_names = ['AVA1314Y1_HML_K1', 'AVA1314Y1_HML_K2', 'AVA1314Y1_HML_K3', 'AVA1314Y1_HML_K4', 'AVA1314Y1_HML_K5']
     data_names =['AVA1314X5_HMHM']
     is_kfold = False
-    aug_name = 'AVA1314X5_HMLHML_MA4'
+    aug_name = 'AVA1314X5_HMLHML_MA8'
 
     augmentation_dir = 'augmentations'
     data_dir = path.join('data', 'train')
