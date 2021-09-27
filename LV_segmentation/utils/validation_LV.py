@@ -25,7 +25,7 @@ def validate_mean_and_median(net, loader, device):
 
             with torch.no_grad():
                 preds = net(imgs)
-                preds = preds['out']
+                #preds = preds['out'] # use if network is from torchvision
 
             loss_eval = DiceHard()
             loss = loss_eval(preds, true_masks)

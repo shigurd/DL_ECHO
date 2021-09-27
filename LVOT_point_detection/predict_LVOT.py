@@ -292,7 +292,7 @@ if __name__ == "__main__":
     
     ''' define model name, prediction dataset and model parameters '''
     keyfile_csv = r'H:/ML_LVOT/backup_keyfile_and_duplicate/keyfile_GE1424_QC.csv'
-    model_file = 'Aug25_01-17-15_RES50_DSNT_ADAM_T-AVA1314X5_HMHM_MA4_V-_EP30_LR0.001_BS20_SCL1.pth'
+    model_file = 'Sep04_21-18-47_RES50_DSNT_ADAM_T-AVA1314X5_HMHM_MA8_V-_EP30_LR0.001_BS20_SCL1.pth'
     data_name = 'AVA1314X5_HMLHML'
     n_channels = 1
     n_classes = 2
@@ -401,7 +401,7 @@ if __name__ == "__main__":
                 total_sum_ed_pix += ed_tot_pix
                 total_lvot_diam_absdiff_pix += absdiff_diam_pix
 
-                median_sum_ed_pix = np.appned(median_sum_ed_pix, total_sum_ed_pix)
+                median_sum_ed_pix = np.append(median_sum_ed_pix, total_sum_ed_pix)
                 median_lvot_diam_absdiff_pix = np.append(median_lvot_diam_absdiff_pix, absdiff_diam_pix)
 
                 ''' converting pixel lvot predicitons to cm '''

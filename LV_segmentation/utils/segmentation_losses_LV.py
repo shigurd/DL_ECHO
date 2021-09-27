@@ -56,6 +56,31 @@ class DiceHard(nn.Module):
         
         return s / (i + 1)
 
+
+class IoUHard(nn.Module):
+    def __init__(self, smooth=1):
+        super(IoUHard, self).__init__()
+        self.smooth = smooth
+
+    def forward(self, input, target):
+        if input.is_cuda:
+            s = torch.FloatTensor(1).cuda().zero_()
+        else:
+            s = torch.FloatTensor(1).zero_()
+
+        for i, c in enumerate(zip(input, target)):
+            i_flat = torch.sigmoid(c[0]).view(-1)
+            i_flat = i_flat > 0.5  # hard cutoff
+            t_flat = c[1].view(-1)
+            intersection = (i_flat * t_flat).sum()
+
+            a_sum = torch.sum(i_flat * i_flat)
+            b_sum = torch.sum(t_flat * t_flat)
+
+            s += (intersection + self.smooth) / (a_sum + b_sum - intersection + self.smooth)
+
+        return s / (i + 1)
+
 class DiceSoftBCELoss(nn.Module):
     def __init__(self, smooth=1, dice_weight=1, bce_weight=1):
         super(DiceSoftBCELoss, self).__init__()

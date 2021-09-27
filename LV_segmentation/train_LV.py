@@ -19,6 +19,7 @@ sys.path.insert(0, '..')
 from networks.resnet50_torchvision import fcn_resnet50, fcn_resnet101, deeplabv3_resnet50, deeplabv3_resnet101
 from networks.unet import UNet
 from networks.unet_plusplus import NestedUNet
+import segmentation_models_pytorch as smp
 
 from itertools import product 
 from datetime import datetime
@@ -105,7 +106,7 @@ def train_net(net,
     ''' make summary writer file with timestamp '''
     time_stamp = datetime.now().strftime('%b%d_%H-%M-%S')
     #hostname = socket.gethostname()
-    if data_train_and_validation[1] != '':
+    if data_train_and_validation[1] == '':
         train_and_val = f'T-{data_train_and_validation[0]}_V-NONE'
     else:
         train_and_val = f'T-{data_train_and_validation[0]}_V-{data_train_and_validation[1]}'
@@ -164,7 +165,9 @@ def train_net(net,
                 true_masks = true_masks.to(device=device, dtype=mask_type)
 
                 preds = net(imgs)
-                loss = criterion(preds['out'], true_masks)
+                #preds = preds['out'] # use for torchvision networks
+
+                loss = criterion(preds, true_masks)
                 loss_batch += loss.item() # compensates for batch repeat
                 
                 loss.backward()
@@ -184,12 +187,12 @@ def train_net(net,
                     if global_step % ((n_train / 10) // true_batch_size) == 0 and data_train_and_validation[1] != '':
                         
                         ''' show prediction in heatmap format '''
-                        preds_heatmap = show_preds_heatmap(preds['out'])
+                        preds_heatmap = show_preds_heatmap(preds)
                         
                         for tag, value in net.named_parameters():
                             tag = tag.replace('.', '/')
                             writer.add_histogram('weights/' + tag, value.data.cpu().numpy(), global_step)
-                            writer.add_histogram('grads/' + tag, value.grad.data.cpu().numpy(), global_step)
+                            #writer.add_histogram('grads/' + tag, value.grad.data.cpu().numpy(), global_step)
                         validate_mean, validate_median = validate_mean_and_median(net, val_loader, device)
                         #writer.add_scalar('learning_rate', optimizer.param_groups[0]['learning_rate'], global_step)
                         
@@ -200,7 +203,7 @@ def train_net(net,
 
                         writer.add_images('images', imgs, global_step)
                         writer.add_images('masks/true', true_masks, global_step)
-                        writer.add_images('masks/pred', torch.sigmoid(preds['out'].detach().cpu()) > 0.5, global_step)
+                        writer.add_images('masks/pred', torch.sigmoid(preds.detach().cpu()) > 0.5, global_step)
                         writer.add_images('heatmap/pred', preds_heatmap, global_step)
                     
                     optimizer.zero_grad()
@@ -236,7 +239,7 @@ if __name__ == '__main__':
     summary_writer_dir = 'runs'
     
     ''' define model_name before running '''
-    model_name = 'R50DLV3_DICBCE_ADAM'
+    model_name = 'EFFIB4-IMGN_DICBCE_ADAM'
     n_classes = 1
     n_channels = 3
     
@@ -274,7 +277,8 @@ if __name__ == '__main__':
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         logging.info(f'Using device {device}')
 
-        net = deeplabv3_resnet50(pretrained=False, progress=True, in_channels=n_channels, num_classes=n_classes, aux_loss=None)
+        #net = deeplabv3_resnet50(pretrained=False, progress=True, in_channels=n_channels, num_classes=n_classes, aux_loss=None)
+        net = smp.Unet(encoder_name="efficientnet-b4", encoder_weights="imagenet", in_channels=n_channels, classes=n_classes)
 
         logging.info(f'Network:\n'
                      f'\t{n_channels} input channels\n'
