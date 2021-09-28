@@ -57,29 +57,35 @@ class DiceHard(nn.Module):
         return s / (i + 1)
 
 
-class IoUHard(nn.Module):
+class DiceAndIoUHardWithFPFN(nn.Module):
     def __init__(self, smooth=1):
-        super(IoUHard, self).__init__()
+        super(DiceAndIoUHardWithFPFN, self).__init__()
         self.smooth = smooth
 
     def forward(self, input, target):
         if input.is_cuda:
-            s = torch.FloatTensor(1).cuda().zero_()
+            s_dice = torch.FloatTensor(1).cuda().zero_()
+            s_iou = torch.FloatTensor(1).cuda().zero_()
+            s_fpfn = torch.FloatTensor(1).cuda().zero_()
         else:
-            s = torch.FloatTensor(1).zero_()
+            s_dice = torch.FloatTensor(1).zero_()
+            s_iou = torch.FloatTensor(1).zero_()
+            s_fpfn = torch.FloatTensor(1).cuda().zero_()
 
         for i, c in enumerate(zip(input, target)):
             i_flat = torch.sigmoid(c[0]).view(-1)
             i_flat = i_flat > 0.5  # hard cutoff
             t_flat = c[1].view(-1)
-            intersection = (i_flat * t_flat).sum()
+            intersection = torch.sum(i_flat * t_flat)
 
             a_sum = torch.sum(i_flat * i_flat)
             b_sum = torch.sum(t_flat * t_flat)
 
-            s += (intersection + self.smooth) / (a_sum + b_sum - intersection + self.smooth)
+            s_dice += (2. * intersection + self.smooth) / (a_sum + b_sum + self.smooth)
+            s_iou += (intersection + self.smooth) / (a_sum + b_sum - intersection + self.smooth)
+            s_fpfn += (a_sum - intersection + b_sum - intersection) / (input.shape[-1] * input.shape[-2])
 
-        return s / (i + 1)
+        return s_dice / (i + 1), s_iou / (i + 1), s_fpfn / (i + 1)
 
 class DiceSoftBCELoss(nn.Module):
     def __init__(self, smooth=1, dice_weight=1, bce_weight=1):
@@ -108,6 +114,36 @@ class DiceSoftBCELoss(nn.Module):
             
             s += dice_loss * self.dice_weight + bce * self.bce_weight
         
+        return s / (i + 1)
+
+
+class IoUSoftBCELoss(nn.Module):
+    def __init__(self, smooth=1, dice_weight=1, bce_weight=1):
+        super(IoUSoftBCELoss, self).__init__()
+        self.smooth = smooth
+        self.dice_weight = dice_weight
+        self.bce_weight = bce_weight
+
+    def forward(self, input, target):
+        if input.is_cuda:
+            s = torch.FloatTensor(1).cuda().zero_()
+        else:
+            s = torch.FloatTensor(1).zero_()
+
+        for i, c in enumerate(zip(input, target)):
+            i_flat = torch.sigmoid(c[0]).view(-1)
+            t_flat = c[1].view(-1)
+
+            a_sum = torch.sum(i_flat * i_flat)
+            b_sum = torch.sum(t_flat * t_flat)
+
+            intersection = (i_flat * t_flat).sum()
+            iou_loss = 1 - ((intersection + self.smooth) / (a_sum + b_sum - intersection + self.smooth))
+
+            bce = F.binary_cross_entropy(i_flat, t_flat, reduction='mean')
+
+            s += iou_loss * self.dice_weight + bce * self.bce_weight
+
         return s / (i + 1)
 
 class BCELoss(nn.Module):

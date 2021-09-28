@@ -193,13 +193,23 @@ def train_net(net,
                             tag = tag.replace('.', '/')
                             writer.add_histogram('weights/' + tag, value.data.cpu().numpy(), global_step)
                             #writer.add_histogram('grads/' + tag, value.grad.data.cpu().numpy(), global_step)
-                        validate_mean, validate_median = validate_mean_and_median(net, val_loader, device)
+                        validate_mean_dice, validate_median_dice, validate_mean_iou, validate_median_iou, validate_mean_fpfn, validate_median_fpfn = validate_mean_and_median(net, val_loader, device)
                         #writer.add_scalar('learning_rate', optimizer.param_groups[0]['learning_rate'], global_step)
                         
-                        logging.info('Validation Mean Dice: {}'.format(validate_mean))
-                        logging.info('Validation Median Dice: {}'.format(validate_median))
-                        writer.add_scalar('Mean_Dice/eval', validate_mean, global_step)
-                        writer.add_scalar('Median_Dice/eval', validate_median, global_step)
+                        logging.info('Validation Mean Dice: {}'.format(validate_mean_dice))
+                        logging.info('Validation Median Dice: {}'.format(validate_median_dice))
+                        writer.add_scalar('Mean_Dice/eval', validate_mean_dice, global_step)
+                        writer.add_scalar('Median_Dice/eval', validate_median_dice, global_step)
+
+                        logging.info('Validation Mean IoU: {}'.format(validate_mean_iou))
+                        logging.info('Validation Median IoU: {}'.format(validate_median_iou))
+                        writer.add_scalar('Mean_IoU/eval', validate_mean_iou, global_step)
+                        writer.add_scalar('Median_IoU/eval', validate_median_iou, global_step)
+
+                        logging.info('Validation Mean FPFN: {}'.format(validate_mean_fpfn))
+                        logging.info('Validation Median FPFN: {}'.format(validate_median_fpfn))
+                        writer.add_scalar('Mean_FPFN/eval', validate_mean_fpfn, global_step)
+                        writer.add_scalar('Median_FPFN/eval', validate_median_fpfn, global_step)
 
                         writer.add_images('images', imgs, global_step)
                         writer.add_images('masks/true', true_masks, global_step)
@@ -239,7 +249,7 @@ if __name__ == '__main__':
     summary_writer_dir = 'runs'
     
     ''' define model_name before running '''
-    model_name = 'EFFIB4-IMGN_DICBCE_ADAM'
+    model_name = 'EFFIB0-IMGN_DICBCE_ADAM'
     n_classes = 1
     n_channels = 3
     
@@ -278,7 +288,7 @@ if __name__ == '__main__':
         logging.info(f'Using device {device}')
 
         #net = deeplabv3_resnet50(pretrained=False, progress=True, in_channels=n_channels, num_classes=n_classes, aux_loss=None)
-        net = smp.Unet(encoder_name="efficientnet-b4", encoder_weights="imagenet", in_channels=n_channels, classes=n_classes)
+        net = smp.Unet(encoder_name="efficientnet-b0", encoder_weights="imagenet", in_channels=n_channels, classes=n_classes)
 
         logging.info(f'Network:\n'
                      f'\t{n_channels} input channels\n'
