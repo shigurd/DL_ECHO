@@ -16,6 +16,7 @@ from utils.segmentation_losses_LV import DiceHard
 sys.path.insert(0, '..')
 from networks.resnet50_torchvision import fcn_resnet50, fcn_resnet101, deeplabv3_resnet50, deeplabv3_resnet101
 from networks.unet import UNet
+import segmentation_models_pytorch as smp
 
 def predict_tensor(net,
                 img_pil,
@@ -34,7 +35,7 @@ def predict_tensor(net,
 
     with torch.no_grad():
         output = net(img_tensor)
-        output = output['out']
+        #output = output['out'] #torchvision syntax
     
     return output
 
@@ -115,19 +116,19 @@ def endocard_epicard_to_tensor(mask_pil):
 if __name__ == "__main__":
     
     ''' define model name, prediction dataset and model parameters '''
-    model_file = 'Aug28_14-10-36_RES50_DICBCE_ADAM_T-GE1956_HMLHML_MA4_V-_EP30_LR0.001_BS20_SCL1.pth'
-    data_name = 'GE1956_HMLHML'
-    n_channels = 1
+    model_file = f'Sep28_12-00-57_EFFIB0-IMGN_DICBCE_ADAM_T-GE1956_HMHM_MA4_K1_V-GE1956_HMHM_K1_EP30_LR0.001_BS20_SCL1.pth'
+    data_name = 'GE1956_HMHM_K1'
+    n_channels = 3
     n_classes = 1
     scaling = 1
     mask_threshold = 0.5
-    mid_systole = True
+    mid_systole = False
     compare_with_ground_truth = True
     convert_to_epicard_and_endocard = True
 
     model_path = path.join('checkpoints', model_file)
-    dir_img = path.join('data', 'test', 'imgs', data_name)
-    dir_mask = path.join('data', 'test', 'masks', data_name)
+    dir_img = path.join('data', 'validate', 'imgs', data_name)
+    dir_mask = path.join('data', 'validate', 'masks', data_name)
 
     ''' make output dir '''
     if compare_with_ground_truth == True:
@@ -143,7 +144,8 @@ if __name__ == "__main__":
     out_files = get_output_filenames(input_files)
     
     ''' define network settings '''
-    net = fcn_resnet50(pretrained=False, progress=True, in_channels=n_channels, num_classes=n_classes, aux_loss=None)
+    #net = fcn_resnet50(pretrained=False, progress=True, in_channels=n_channels, num_classes=n_classes, aux_loss=None)
+    net = smp.Unet(encoder_name="efficientnet-b0", encoder_weights="imagenet", in_channels=n_channels, classes=n_classes)
     logging.info("Loading model {}".format(model_path))
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')

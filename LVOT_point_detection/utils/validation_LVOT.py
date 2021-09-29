@@ -30,7 +30,7 @@ def validate_mean_and_median_for_distance_and_diameter(net, loader, device):
 
             with torch.no_grad():
                 preds = net(imgs)
-                preds = preds['out']
+                #preds = preds['out'] # torchvision syntax
 
             loss_eval = PixelDSNTDistanceDoubleEval()
             ''' outputs absolute inferior loss, superior loss, total loss and diameter difference '''

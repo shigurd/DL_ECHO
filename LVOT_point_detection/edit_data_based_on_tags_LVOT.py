@@ -7,9 +7,9 @@ if __name__ == '__main__':
 
     ''' remove tags from train folders '''
 
-    # data_names = ['AVA1314Y1_HML_K1', 'AVA1314Y1_HML_K2', 'AVA1314Y1_HML_K3', 'AVA1314Y1_HML_K4', 'AVA1314Y1_HML_K5']
-    data_names = ['AVA1314X5_HMLHML']
-    is_kfold = False
+    data_names = ['AVA1314X5_HMLHML_K1', 'AVA1314X5_HMLHML_K2', 'AVA1314X5_HMLHML_K3', 'AVA1314X5_HMLHML_K4', 'AVA1314X5_HMLHML_K5']
+    #data_names = ['AVA1314X5_HMLHML']
+    is_kfold = True
     tags_to_remove = ['ILOW', 'MLOW']
     new_data_name = 'HMHM'
 

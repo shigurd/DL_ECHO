@@ -18,6 +18,8 @@ from utils.point_losses_LVOT import PixelDSNTDistanceDoublePredict
 sys.path.insert(0, '..')
 from networks.resnet50_torchvision import fcn_resnet50, fcn_resnet101, deeplabv3_resnet50, deeplabv3_resnet101
 from networks.unet import UNet
+import segmentation_models_pytorch as smp
+
 from dicom_extraction_utils_GE.LVOT_coords import get_cm_coordinates
 
 
@@ -35,7 +37,7 @@ def predict_tensor(net,
 
     with torch.no_grad():
         output = net(img_tensor)
-        output = output['out']
+        #output = output['out'] # torchvision syntax
 
     return output
 
@@ -317,7 +319,9 @@ if __name__ == "__main__":
     out_files = get_output_filenames(input_files)
     
     ''' define network settings '''
-    net = fcn_resnet50(pretrained=False, progress=True, in_channels=n_channels, num_classes=n_classes, aux_loss=None)
+    #net = fcn_resnet50(pretrained=False, progress=True, in_channels=n_channels, num_classes=n_classes, aux_loss=None)
+    net = smp.Unet(encoder_name="efficientnet-b0", encoder_weights="imagenet", in_channels=n_channels, classes=n_classes)
+
     logging.info("Loading model {}".format(model_path))
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')

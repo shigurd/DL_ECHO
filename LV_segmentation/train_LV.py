@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 from utils.validation_LV import validate_mean_and_median
 from utils.dataloader_LV import BasicDataset
-from utils.segmentation_losses_LV import DiceSoftBCELoss
+from utils.segmentation_losses_LV import DiceSoftBCELoss, IoUSoftBCELoss
 
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader
@@ -74,7 +74,8 @@ def train_net(net,
     ''' define optimizer and loss '''
     #optimizer = optim.RMSprop(net.parameters(), lr=learning_rate, weight_decay=1e-8, momentum=0.9)
     optimizer = optim.Adam(net.parameters(), lr=learning_rate, weight_decay=1e-8)
-    criterion = DiceSoftBCELoss()
+    #criterion = DiceSoftBCELoss()
+    criterion = IoUSoftBCELoss()
 
     ''' to check if training is from scratch or transfer learning/checkpoint appending '''
     if transfer_learning_path != '':
@@ -211,10 +212,10 @@ def train_net(net,
                         writer.add_scalar('Mean_FPFN/eval', validate_mean_fpfn, global_step)
                         writer.add_scalar('Median_FPFN/eval', validate_median_fpfn, global_step)
 
-                        writer.add_images('images', imgs, global_step)
-                        writer.add_images('masks/true', true_masks, global_step)
-                        writer.add_images('masks/pred', torch.sigmoid(preds.detach().cpu()) > 0.5, global_step)
-                        writer.add_images('heatmap/pred', preds_heatmap, global_step)
+                        #writer.add_images('images', imgs, global_step)
+                        #writer.add_images('masks/true', true_masks, global_step)
+                        #writer.add_images('masks/pred', torch.sigmoid(preds.detach().cpu()) > 0.5, global_step)
+                        #writer.add_images('heatmap/pred', preds_heatmap, global_step)
                     
                     optimizer.zero_grad()
                     
@@ -249,7 +250,7 @@ if __name__ == '__main__':
     summary_writer_dir = 'runs'
     
     ''' define model_name before running '''
-    model_name = 'EFFIB0-IMGN_DICBCE_ADAM'
+    model_name = 'EFFIB0-IMGN_IOUBCE_ADAM'
     n_classes = 1
     n_channels = 3
     
@@ -288,7 +289,7 @@ if __name__ == '__main__':
         logging.info(f'Using device {device}')
 
         #net = deeplabv3_resnet50(pretrained=False, progress=True, in_channels=n_channels, num_classes=n_classes, aux_loss=None)
-        net = smp.Unet(encoder_name="efficientnet-b0", encoder_weights="imagenet", in_channels=n_channels, classes=n_classes)
+        net = smp.Unet(encoder_name="efficientnet-b0", encoder_weights=None, in_channels=n_channels, classes=n_classes)
 
         logging.info(f'Network:\n'
                      f'\t{n_channels} input channels\n'

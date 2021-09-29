@@ -212,7 +212,7 @@ class TverskyLoss(nn.Module):
             tp = (i_flat * t_flat).sum()    
             fp = ((1 - t_flat) * i_flat).sum()
             fn = (t_flat * (1 - i_flat)).sum()
-            tversky_loss = 1 -((tp + self.smooth) / (tp + self.tp_weight * fp + self.fn_weight * fn + self.smooth))
+            tversky_loss = 1 - ((tp + self.smooth) / (tp + self.tp_weight * fp + self.fn_weight * fn + self.smooth))
             
             s += tversky_loss
             
@@ -241,7 +241,7 @@ class TverskyBCELoss(nn.Module):
             tp = torch.sum(i_flat * t_flat)
             fp = torch.sum((1 - t_flat) * i_flat)
             fn = torch.sum(t_flat * (1 - i_flat))
-            tversky_loss = 1 - ((tp + smooth) / (tp + self.tp_weight * fp + self.fn_weight * fn + self.smooth))
+            tversky_loss = 1 - ((tp + self.smooth) / (tp + self.tp_weight * fp + self.fn_weight * fn + self.smooth))
             
             bce = F.binary_cross_entropy(i_flat, t_flat, reduction='mean')
             
