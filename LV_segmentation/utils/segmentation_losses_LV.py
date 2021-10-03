@@ -10,7 +10,7 @@ from scipy.ndimage import distance_transform_edt
 ''' all loss functions use logits as input '''
 
 class DiceSoftLoss(nn.Module):
-    def __init___(self, smooth=1):
+    def __init__(self, smooth=1):
         super(DiceSoftLoss, self).__init__()
         self.smooth = smooth
 
@@ -23,7 +23,7 @@ class DiceSoftLoss(nn.Module):
         for i, c in enumerate(zip(input, target)):
             iflat = torch.sigmoid(c[0]).view(-1)
             tflat = c[1].view(-1)
-            intersection = (iflat * tflat).sum()
+            intersection = torch.sum(iflat * tflat)
 
             a_sum = torch.sum(iflat * iflat)
             b_sum = torch.sum(tflat * tflat)
@@ -31,6 +31,31 @@ class DiceSoftLoss(nn.Module):
             s += 1 - ((2. * intersection + self.smooth) / (a_sum + b_sum + self.smooth))
         
         return s / (i + 1)
+
+
+class IoUSoftLoss(nn.Module):
+    def __init__(self, smooth=1):
+        super(IoUSoftLoss, self).__init__()
+        self.smooth = smooth
+
+    def forward(self, input, target):
+        if input.is_cuda:
+            s = torch.FloatTensor(1).cuda().zero_()
+        else:
+            s = torch.FloatTensor(1).zero_()
+
+        for i, c in enumerate(zip(input, target)):
+            iflat = torch.sigmoid(c[0]).view(-1)
+            tflat = c[1].view(-1)
+            intersection = torch.sum(iflat * tflat)
+
+            a_sum = torch.sum(iflat * iflat)
+            b_sum = torch.sum(tflat * tflat)
+
+            s += 1 - ((intersection + self.smooth) / (a_sum + b_sum - intersection + self.smooth))
+
+        return s / (i + 1)
+
 
 class DiceHard(nn.Module):
     def __init__(self, smooth=1):
@@ -107,7 +132,7 @@ class DiceSoftBCELoss(nn.Module):
             a_sum = torch.sum(i_flat * i_flat)
             b_sum = torch.sum(t_flat * t_flat)
             
-            intersection = (i_flat * t_flat).sum()                            
+            intersection = torch.sum(i_flat * t_flat)
             dice_loss = 1 - (2. * intersection + self.smooth) / (a_sum + b_sum + self.smooth)  
             
             bce = F.binary_cross_entropy(i_flat, t_flat, reduction='mean')
@@ -121,7 +146,7 @@ class IoUSoftBCELoss(nn.Module):
     def __init__(self, smooth=1, dice_weight=1, bce_weight=1):
         super(IoUSoftBCELoss, self).__init__()
         self.smooth = smooth
-        self.dice_weight = dice_weight
+        self.iou_weight = dice_weight
         self.bce_weight = bce_weight
 
     def forward(self, input, target):
@@ -137,12 +162,12 @@ class IoUSoftBCELoss(nn.Module):
             a_sum = torch.sum(i_flat * i_flat)
             b_sum = torch.sum(t_flat * t_flat)
 
-            intersection = (i_flat * t_flat).sum()
+            intersection = torch.sum(i_flat * t_flat)
             iou_loss = 1 - ((intersection + self.smooth) / (a_sum + b_sum - intersection + self.smooth))
 
             bce = F.binary_cross_entropy(i_flat, t_flat, reduction='mean')
 
-            s += iou_loss * self.dice_weight + bce * self.bce_weight
+            s += iou_loss * self.iou_weight + bce * self.bce_weight
 
         return s / (i + 1)
 
@@ -163,31 +188,6 @@ class BCELoss(nn.Module):
             bce = F.binary_cross_entropy(i_flat, t_flat, reduction='mean')
             
             s += bce
-        
-        return s / (i + 1)
-
-class IoULoss(nn.Module):
-    def __init__(self, smooth=1):
-        self.smooth = smooth
-        super(IoULoss, self).__init__()
-
-    def forward(self, input, target):
-        if input.is_cuda:
-            s = torch.FloatTensor(1).cuda().zero_()
-        else:
-            s = torch.FloatTensor(1).zero_()
-        
-        for i, c in enumerate(zip(input, target)):
-            i_flat = torch.sigmoid(c[0]).view(-1)
-            t_flat = c[1].view(-1)
-            #intersection = (i_flat * t_flat).sum()
-            intersection = torch.sum(i_flat * t_flat)
-
-            a_sum = torch.sum(i_flat * i_flat)
-            b_sum = torch.sum(t_flat * t_flat)
-            iou_loss = 1 - ((intersection + self.smooth) / (a_sum + b_sum - intersection + self.smooth))
-            
-            s += iou_loss
         
         return s / (i + 1)
 

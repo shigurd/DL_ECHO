@@ -246,7 +246,7 @@ if __name__ == '__main__':
     summary_writer_dir = 'runs'
     
     ''' define model_name before running '''
-    model_name = 'EFFIB0_DSNT_ADAM'
+    model_name = 'EFFIB0-DLV3+_DSNT_ADAM'
     n_classes = 2
     n_channels = 1
     
@@ -284,7 +284,7 @@ if __name__ == '__main__':
         logging.info(f'Using device {device}')
 
         #net = fcn_resnet50(pretrained=False, progress=True, in_channels=n_channels, num_classes=n_classes, aux_loss=None)
-        net = smp.Unet(encoder_name="efficientnet-b0", encoder_weights=None, in_channels=n_channels, classes=n_classes)
+        net = smp.DeepLabV3Plus(encoder_name="efficientnet-b0", encoder_weights=None, in_channels=n_channels, classes=n_classes)
 
         logging.info(f'Network:\n'
                      f'\t{n_channels} input channels\n'

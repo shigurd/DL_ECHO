@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 from utils.validation_LV import validate_mean_and_median
 from utils.dataloader_LV import BasicDataset
-from utils.segmentation_losses_LV import DiceSoftBCELoss, IoUSoftBCELoss
+from utils.segmentation_losses_LV import DiceSoftBCELoss, IoUSoftBCELoss, DiceSoftLoss, IoUSoftLoss
 
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader
@@ -75,7 +75,9 @@ def train_net(net,
     #optimizer = optim.RMSprop(net.parameters(), lr=learning_rate, weight_decay=1e-8, momentum=0.9)
     optimizer = optim.Adam(net.parameters(), lr=learning_rate, weight_decay=1e-8)
     #criterion = DiceSoftBCELoss()
-    criterion = IoUSoftBCELoss()
+    #criterion = IoUSoftBCELoss()
+    #criterion = DiceSoftLoss()
+    criterion = IoUSoftLoss()
 
     ''' to check if training is from scratch or transfer learning/checkpoint appending '''
     if transfer_learning_path != '':
@@ -250,17 +252,17 @@ if __name__ == '__main__':
     summary_writer_dir = 'runs'
     
     ''' define model_name before running '''
-    model_name = 'EFFIB0-IMGN_IOUBCE_ADAM'
+    model_name = 'EFFIB0-IOU_ADAM'
     n_classes = 1
     n_channels = 3
     
     training_parameters = dict(
         data_train_and_validation = [
-            ['GE1956_HMHM_MA4_K1', 'GE1956_HMHM_K1'],
-            ['GE1956_HMHM_MA4_K2', 'GE1956_HMHM_K2'],
-            ['GE1956_HMHM_MA4_K3', 'GE1956_HMHM_K3'],
-            ['GE1956_HMHM_MA4_K4', 'GE1956_HMHM_K4'],
-            ['GE1956_HMHM_MA4_K5', 'GE1956_HMHM_K5']
+            ['GE1956_HMHM_K1', 'GE1956_HMHM_K1'],
+            ['GE1956_HMHM_K2', 'GE1956_HMHM_K2'],
+            ['GE1956_HMHM_K3', 'GE1956_HMHM_K3'],
+            ['GE1956_HMHM_K4', 'GE1956_HMHM_K4'],
+            ['GE1956_HMHM_K5', 'GE1956_HMHM_K5']
             ],
         epochs=[30],
         learning_rate=[0.001],
