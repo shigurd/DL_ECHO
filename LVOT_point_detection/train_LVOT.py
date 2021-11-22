@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 from utils.validation_LVOT import validate_mean_and_median_for_distance_and_diameter
 from utils.dataloader_LVOT import BasicDataset
-from utils.point_losses_LVOT import DSNTDoubleLoss
+from utils.point_losses_LVOT import DSNTDoubleLoss, DSNTDistanceDoubleLoss, DistanceDoubleLoss, DSNTDistanceAngleDoubleLoss
 
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader
@@ -72,7 +72,10 @@ def train_net(net,
     ''' define optimizer and loss '''
     #optimizer = optim.RMSprop(net.parameters(), lr=learning_rate, weight_decay=1e-8, momentum=0.9)
     optimizer = optim.Adam(net.parameters(), lr=learning_rate, weight_decay=1e-8)
-    criterion = DSNTDoubleLoss()
+    #criterion = DSNTDoubleLoss()
+    #criterion = DSNTDistanceDoubleLoss()
+    #criterion = DistanceDoubleLoss()
+    criterion = DSNTDistanceAngleDoubleLoss()
 
     ''' to check if training is from scratch or transfer learning/checkpoint appending '''
     if transfer_learning_path != '':
@@ -161,7 +164,7 @@ def train_net(net,
                 true_masks_cat = torch.cat((true_masks[0], true_masks[1]), 1).to(device=device, dtype=mask_type)
 
                 preds = net(imgs)
-                #preds = preds['out'] #torchvision syntax
+                preds = preds['out'] #torchvision syntax
 
                 loss = criterion(preds, true_masks_cat)
                 loss_batch += loss.item() #moved to compensate for batch repeat
@@ -246,7 +249,7 @@ if __name__ == '__main__':
     summary_writer_dir = 'runs'
     
     ''' define model_name before running '''
-    model_name = 'EFFIB0-DLV3+_DSNT_ADAM'
+    model_name = 'RES50_DSNTDISTANGL_ADAM'
     n_classes = 2
     n_channels = 1
     
@@ -283,8 +286,8 @@ if __name__ == '__main__':
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         logging.info(f'Using device {device}')
 
-        #net = fcn_resnet50(pretrained=False, progress=True, in_channels=n_channels, num_classes=n_classes, aux_loss=None)
-        net = smp.DeepLabV3Plus(encoder_name="efficientnet-b0", encoder_weights=None, in_channels=n_channels, classes=n_classes)
+        net = fcn_resnet50(pretrained=False, progress=True, in_channels=n_channels, num_classes=n_classes, aux_loss=None)
+        #net = smp.DeepLabV3Plus(encoder_name="efficientnet-b0", encoder_weights=None, in_channels=n_channels, classes=n_classes)
 
         logging.info(f'Network:\n'
                      f'\t{n_channels} input channels\n'

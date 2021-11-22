@@ -405,7 +405,7 @@ if __name__ == "__main__":
                 total_sum_ed_pix += ed_tot_pix
                 total_lvot_diam_absdiff_pix += absdiff_diam_pix
 
-                median_sum_ed_pix = np.append(median_sum_ed_pix, total_sum_ed_pix)
+                median_sum_ed_pix = np.append(median_sum_ed_pix, ed_tot_pix)
                 median_lvot_diam_absdiff_pix = np.append(median_lvot_diam_absdiff_pix, absdiff_diam_pix)
 
                 ''' converting pixel lvot predicitons to cm '''

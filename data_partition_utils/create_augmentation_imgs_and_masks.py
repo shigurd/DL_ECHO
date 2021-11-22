@@ -197,7 +197,91 @@ class MyAugmentations:
         return img, masks
 
 
-def create_augmentations(dataset_name, datasets_dir, n_augmention_copies, augmentations_dir_output):
+def create_single_augmentations(dataset_name, datasets_dir, n_augmention_copies, augmentations_dir_output):
+
+    imgs_dir_path = path.join(datasets_dir, 'imgs', dataset_name)
+    masks_dir_path = path.join(datasets_dir, 'masks', dataset_name)
+
+    imgs_aug = path.join(augmentations_dir_output, 'imgs', f'{dataset_name}_A{n_augmention_copies}')
+    masks_aug = path.join(augmentations_dir_output, 'masks', f'{dataset_name}_A{n_augmention_copies}')
+    os.mkdir(imgs_aug)
+    os.mkdir(masks_aug)
+
+    input_files = os.listdir(imgs_dir_path)
+
+    with tqdm(total=len(input_files)*n_augmention_copies, desc='Total augmentations', unit='imgs and masks', leave=False) as pbar:
+
+        for i in input_files:
+            file_id = i.rsplit('.', 1)[0]
+            img_path = path.join(imgs_dir_path, i)
+            masks_paths = glob(path.join(masks_dir_path, file_id) + '*')
+            masks_exts = [path.basename(mask_path).rsplit('_', 1)[-1] for mask_path in masks_paths]
+
+            used_augmentations = []
+
+            for x in range(1, n_augmention_copies + 1):
+                ''' generate which augmentations should be used '''
+
+                random_aug = random.randrange(0, 10, 1)
+                while random_aug in used_augmentations:
+                    random_aug = random.randrange(0, 10, 1)
+                used_augmentations.append(random_aug)
+
+                current_augmentations = MyAugmentations(img_path, masks_paths)
+
+                if random_aug == 0:
+                    current_augmentations.my_zoom_out()
+
+                if random_aug == 1:
+                    current_augmentations.my_x_warp_in()
+
+                if random_aug == 2:
+                    current_augmentations.my_x_warp_out()
+
+                if random_aug == 3:
+                    current_augmentations.my_blur()
+
+                if random_aug == 4:
+                    current_augmentations.my_rotate()
+
+                if random_aug == 5:
+                    current_augmentations.my_shift()
+
+                if random_aug == 6:
+                    current_augmentations.my_zoom_in()
+
+                if random_aug == 7:
+                    current_augmentations.my_gamma_down()
+
+                if random_aug == 8:
+                    current_augmentations.my_gamma_up()
+
+                if random_aug == 9:
+                    current_augmentations.my_noise()
+
+                ''' crops images and masks to same size after transforms '''
+                current_augmentations.crop_img_and_masks_for_output()
+
+                ''' shows augmented images without saving '''
+                #current_augmentations.show_current_img_and_masks()
+
+                img_augmented, masks_augmented = current_augmentations.get_current_img_and_masks()
+
+                if x < 10:
+                    img_save_path = path.join(imgs_aug, f'{file_id}_A0{x}.png')
+                    masks_save_paths = [path.join(masks_aug, f'{file_id}_A0{x}_{mask_ext}') for mask_ext in masks_exts]
+                else:
+                    img_save_path = path.join(imgs_aug, f'{file_id}_A{x}.png')
+                    masks_save_paths = [path.join(masks_aug, f'{file_id}_A{x}_{mask_ext}') for mask_ext in masks_exts]
+
+                io.imsave(img_save_path, img_augmented)
+                for pm in zip(masks_save_paths, masks_augmented):
+                    io.imsave(pm[0], pm[1])
+
+                pbar.update()
+
+
+def create_combined_augmentations(dataset_name, datasets_dir, n_augmention_copies, augmentations_dir_output):
 
     imgs_dir_path = path.join(datasets_dir, 'imgs', dataset_name)
     masks_dir_path = path.join(datasets_dir, 'masks', dataset_name)
