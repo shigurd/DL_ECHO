@@ -197,6 +197,193 @@ class MyAugmentations:
         return img, masks
 
 
+class MyLiveAugmentations:
+    def __init__(self, img_np, masks_np):
+        self.img = img_as_ubyte(img_np) # convert from normalised float
+        self.masks = [img_as_ubyte(mask_np) for mask_np in masks_np] # convert from normalised float
+        self.y_size = self.img.shape[0]
+        self.x_size = self.img.shape[1]
+        if len(self.img.shape) == 3:
+            self.is_rgb = True
+        else:
+            self.is_rgb = False
+
+    def my_rotate(self):
+        ''' angles for rotation '''
+        rot_range = [[10, 21], [350, 361]]
+        range_choice = random.choice(rot_range)
+        degree = random.randrange(range_choice[0], range_choice[1])
+
+        img_rot = rotate(self.img, angle=degree, mode='constant')
+        masks_rot = [rotate(mask, angle=degree, mode='constant') for mask in self.masks]
+
+        self.img = img_rot
+        self.masks = masks_rot
+
+    def my_shift(self):
+        ''' only left and right shifting '''
+        switch = [-1, 1]
+        ''' only downwards shifting '''
+        # y = random.randrange(10) * -1
+        y = 0
+        x = random.randrange(20) * random.choice(switch)
+
+        shift = AffineTransform(translation=(x, y))
+        img_shi = warp(self.img, shift, mode='constant')
+        masks_shi = [warp(mask, shift, mode='constant') for mask in self.masks]
+
+        self.img = img_shi
+        self.masks = masks_shi
+
+    def my_zoom_in(self):
+        ''' downscales the canvas '''
+        scale = 0.9
+        ''' only if width and height are the same '''
+        size = self.y_size
+        ''' canvas upscaling increases range, image then has to be centered'''
+        move_range = int(((scale - 1) * size) / 2)
+
+        ''' all movement is towards the right since the image is not centered '''
+        y = move_range * -1
+        x = move_range * -1
+
+        shift_scale = AffineTransform(scale=(scale, scale), translation=(x, y))
+
+        img_zin = warp(self.img, shift_scale, mode='constant')
+        masks_zin = [warp(mask, shift_scale, mode='constant') for mask in self.masks]
+
+        self.img = img_zin
+        self.masks = masks_zin
+
+    def my_zoom_out(self):
+        ''' upscales the canvas '''
+        scale = 1.1
+        ''' only if width and height are the same '''
+        size = self.y_size
+        ''' canvas upscaling increases range, image then has to be centered'''
+        move_range = int(((scale - 1) * size) / 2)
+
+        ''' all movement is towards the right since the image is not centered '''
+        y = move_range * -1
+        x = move_range * -1
+
+        shift_scale = AffineTransform(scale=(scale, scale), translation=(x, y))
+
+        img_zou = warp(self.img, shift_scale, mode='constant')
+        masks_zou = [warp(mask, shift_scale, mode='constant') for mask in self.masks]
+
+        self.img = img_zou
+        self.masks = masks_zou
+
+    def my_x_warp_in(self):
+        ''' only if width and height are the same '''
+        size = self.y_size
+        max_scale = 1.1
+        x_warp = int(size * max_scale)
+
+        img_wxo = resize(self.img, (size, x_warp), anti_aliasing=True)
+        masks_wxo = [resize(mask, (size, x_warp), anti_aliasing=True) for mask in self.masks]
+
+        self.img = img_wxo
+        self.masks = masks_wxo
+
+    def my_x_warp_out(self):
+        ''' scales up canvas '''
+        scale = 1.1
+        ''' only if width and height are the same '''
+        size = self.y_size
+        ''' centers the image by dividing the upscale by 2 '''
+        center = int(((scale - 1) / 2) * size)
+
+        shift_warp = AffineTransform(scale=(scale, 1), translation=(-center, 0))
+
+        img_wxi = warp(self.img, shift_warp, mode='constant')
+        masks_wxi = [warp(mask, shift_warp, mode='constant') for mask in self.masks]
+
+        self.img = img_wxi
+        self.masks = masks_wxi
+
+    def my_y_warp_in(self):
+        ''' only if width and height are the same '''
+        size = self.y_size
+        max_scale = 1.1
+        y_warp = int(size * max_scale)
+
+        img_wyi = resize(self.img, (y_warp, size), anti_aliasing=True)
+        masks_wyi = [resize(mask, (y_warp, size), anti_aliasing=True) for mask in self.masks]
+
+        self.img = img_wyi
+        self.masks = masks_wyi
+
+    def my_noise(self):
+        sigma = 0.1
+        img_noi = random_noise(self.img, var=sigma ** 2)
+
+        self.img = img_noi
+
+    def my_blur(self):
+        sigma = 1
+        img_blu = gaussian(self.img, sigma=sigma, multichannel=True)
+
+        self.img = img_blu
+
+    def my_gamma_up(self):
+        img_gau = exposure.adjust_gamma(self.img, gamma=0.75, gain=1)
+
+        self.img = img_gau
+
+    def my_gamma_down(self):
+        img_gad = exposure.adjust_gamma(self.img, gamma=1.5, gain=1)
+
+        self.img = img_gad
+
+    '''
+    def my_exposure(self):
+        v_min, v_max = np.percentile(self.img, (0, 95))
+        img_exp = exposure.rescale_intensity(self.img, in_range=(v_min, v_max))
+
+        self.img = img_exp
+    '''
+
+    def crop_img_and_masks_for_output(self):
+        width_original = self.y_size
+        height_original = self.x_size
+
+        width_current = self.img.shape[0]
+        height_current = self.img.shape[1]
+
+        ''' crops the same on both sides y dim '''
+        crop_l = int((width_current - width_original) / 2)
+        crop_r = width_current - width_original - crop_l
+
+        ''' crops the same on both sides x dim '''
+        crop_u = int((height_current - height_original) / 2)
+        crop_d = height_current - height_original - crop_u
+
+        if self.is_rgb == True:
+            img_trimmed = img_as_ubyte(crop(self.img, ((crop_l, crop_r), (crop_u, crop_d), (0, 0)), copy=False))
+        else:
+            img_trimmed = img_as_ubyte(crop(self.img, ((crop_l, crop_r), (crop_u, crop_d)), copy=False))
+        masks_trimmed = [img_as_ubyte(crop(mask, ((crop_l, crop_r), (crop_u, crop_d)), copy=False)) for mask in
+                         self.masks]
+
+        self.img = img_trimmed
+        self.masks = masks_trimmed
+
+    def show_current_img_and_masks(self):
+        io.imshow(self.img)
+        plt.show()
+        for mask in self.masks:
+            io.imshow(mask)
+            plt.show()
+
+    def get_current_img_and_masks(self):
+        img = img_as_ubyte(self.img)
+        masks = img_as_ubyte(self.masks)
+
+        return img, masks
+
+
 def create_single_augmentations(dataset_name, datasets_dir, n_augmention_copies, augmentations_dir_output):
 
     imgs_dir_path = path.join(datasets_dir, 'imgs', dataset_name)
@@ -626,5 +813,5 @@ if __name__ == ' __main__':
     datasets_dir = 'datasets'
     augmentations_dir_output = 'augmentations'
 
-    create_augmentations(dataset_name, datasets_dir, n_augmention_copies, augmentations_dir_output)
+    create_combined_augmentations(dataset_name, datasets_dir, n_augmention_copies, augmentations_dir_output)
     

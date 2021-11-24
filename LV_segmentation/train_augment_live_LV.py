@@ -7,6 +7,10 @@ import numpy as np
 import torch
 from torch import optim
 from tqdm import tqdm
+import random
+
+from data_partition_utils.create_augmentation_imgs_and_masks import MyLiveAugmentations
+from PIL import Image
 
 from utils.validation_LV import validate_mean_and_median
 from utils.dataloader_LV import BasicDataset
@@ -50,6 +54,68 @@ def show_preds_heatmap(preds):
     numpy_plot = np.stack(numpy_stack)
     
     return numpy_plot
+
+def augment_imgs_masks_batch(imgs_torch_batch, masks_torch_batch):
+    ''' augments images and masks randomly for every batch '''
+    imgs_temp= []
+    masks_temp = []
+
+    for img_mask_torch in zip(imgs_torch_batch, masks_torch_batch): # zips files according to order
+        img_np = img_mask_torch[0].numpy()
+        img_np = img_np.transpose((1, 2, 0)).squeeze()  # reconvert to np img format from dataloader
+        masks_np = [mask.numpy() for mask in img_mask_torch[1]] # in case of multiple masks, masks are always greyscale
+
+        temp = MyLiveAugmentations(img_np, masks_np)
+        augmentation_choice = random.randrange(0, 11)
+
+        if augmentation_choice == 0:
+            temp.my_zoom_out()
+
+        if augmentation_choice == 1:
+            temp.my_x_warp_in()
+
+        if augmentation_choice == 2:
+            temp.my_x_warp_out()
+
+        if augmentation_choice == 3:
+            temp.my_blur()
+
+        if augmentation_choice == 4:
+            temp.my_rotate()
+
+        if augmentation_choice == 5:
+            temp.my_shift()
+
+        if augmentation_choice == 6:
+            temp.my_zoom_in()
+
+        if augmentation_choice == 7:
+            temp.my_gamma_down()
+
+        if augmentation_choice == 8:
+            temp.my_gamma_up()
+
+        if augmentation_choice == 9:
+            temp.my_noise()
+
+        if augmentation_choice == 10:
+            ''' no augmentation '''
+            pass
+
+        ''' crops images and masks to same size after transforms '''
+        temp.crop_img_and_masks_for_output()
+
+        img_augmented_np, masks_augmented_np = temp.get_current_img_and_masks()
+        img_augmented_np = BasicDataset.preprocess(Image.fromarray(img_augmented_np), scale=1) # reprocessing for dataloader
+        masks_augmented_np = [BasicDataset.preprocess(Image.fromarray(mask_augmented_np), scale=1) for mask_augmented_np in masks_augmented_np] # reprocessing for dataloader
+
+        imgs_temp.append(img_augmented_np)
+        masks_temp.append(np.concatenate(masks_augmented_np, axis=0))
+
+    imgs_augmented_stack = np.stack(imgs_temp, axis=0)
+    masks_augmented_stack = np.stack(masks_temp, axis=0)
+
+    return torch.from_numpy(imgs_augmented_stack).type(torch.FloatTensor), torch.from_numpy(masks_augmented_stack).type(torch.FloatTensor)
 
 
 def train_net(net,
@@ -162,10 +228,11 @@ def train_net(net,
                     f'but loaded images have {imgs.shape[1]} channels. Please check that ' \
                     'the images are loaded correctly.'
 
-                imgs = imgs.to(device=device, dtype=torch.float32)
-                mask_type = torch.float32 #if net.output_channels == 1 else torch.long
-                
-                true_masks = true_masks.to(device=device, dtype=mask_type)
+                ''' apply augmentations to images and masks '''
+                imgs_augmented_batch, masks_augmented_batch = augment_imgs_masks_batch(imgs, true_masks)
+
+                imgs = imgs_augmented_batch.to(device=device, dtype=torch.float32)
+                true_masks = masks_augmented_batch.to(device=device, dtype=torch.float32)
 
                 preds = net(imgs)
                 #preds = preds['out'] # use for torchvision networks
@@ -189,9 +256,6 @@ def train_net(net,
                     # validates every 10% of the epoch
                     if global_step % ((n_train / 1) // true_batch_size) == 0 and data_train_and_validation[1] != '':
                         
-                        ''' show prediction in heatmap format '''
-                        preds_heatmap = show_preds_heatmap(preds)
-                        
                         for tag, value in net.named_parameters():
                             tag = tag.replace('.', '/')
                             writer.add_histogram('weights/' + tag, value.data.cpu().numpy(), global_step)
@@ -213,6 +277,9 @@ def train_net(net,
                         logging.info('Validation Median FPFN: {}'.format(validate_median_fpfn))
                         writer.add_scalar('Mean_FPFN/eval', validate_mean_fpfn, global_step)
                         writer.add_scalar('Median_FPFN/eval', validate_median_fpfn, global_step)
+
+                        ''' show prediction in heatmap format '''
+                        #preds_heatmap = show_preds_heatmap(preds)
 
                         #writer.add_images('images', imgs, global_step)
                         #writer.add_images('masks/true', true_masks, global_step)
@@ -252,17 +319,17 @@ if __name__ == '__main__':
     summary_writer_dir = 'runs'
     
     ''' define model_name before running '''
-    model_name = 'EFFIB0-DICBCE_ADAM'
+    model_name = 'EFFIB0-DICBCE_AL_ADAM'
     n_classes = 1
     n_channels = 3
     
     training_parameters = dict(
         data_train_and_validation = [
-            ['GE1956_HMHM_A4_K1', 'GE1956_HMHM_K1'],
-            ['GE1956_HMHM_A4_K2', 'GE1956_HMHM_K2'],
-            ['GE1956_HMHM_A4_K3', 'GE1956_HMHM_K3'],
-            ['GE1956_HMHM_A4_K4', 'GE1956_HMHM_K4'],
-            ['GE1956_HMHM_A4_K5', 'GE1956_HMHM_K5']
+            ['GE1956_HMHM_K1', 'GE1956_HMHM_K1'],
+            ['GE1956_HMHM_K2', 'GE1956_HMHM_K2'],
+            ['GE1956_HMHM_K3', 'GE1956_HMHM_K3'],
+            ['GE1956_HMHM_K4', 'GE1956_HMHM_K4'],
+            ['GE1956_HMHM_K5', 'GE1956_HMHM_K5']
             ],
         epochs=[30],
         learning_rate=[0.001],
