@@ -18,37 +18,11 @@ from torch.utils.data import DataLoader
 sys.path.insert(0, '..')
 from networks.resnet50_torchvision import fcn_resnet50, fcn_resnet101, deeplabv3_resnet50, deeplabv3_resnet101
 from networks.unet import UNet
+from common_utils.heatmap_plot import show_preds_heatmap
 import segmentation_models_pytorch as smp
 
 from itertools import product 
 from datetime import datetime
-
-import matplotlib.pyplot as plt
-
-
-def show_preds_heatmap(preds):
-    ''' creates heatmaps and orders them for saving in summary_writer '''
-    preds_detached = preds.detach().cpu().numpy()
-
-    stack_np = []
-    for layer in preds_detached:
-        for channel in layer:
-            maxval = np.max(channel)
-            minval = np.min(channel)
-            temp = (channel - minval) / (maxval - minval)
-            
-            cmap = plt.get_cmap('jet')
-            rgba_img = cmap(temp.squeeze())
-            rgb_img = rgba_img[:, :, :-1] # deletes alphachannel
-            plot_tb = (rgb_img * 255).astype(np.uint8).transpose((2, 0, 1))
-            stack_np.append(plot_tb)
-
-            #plot = Image.fromarray((rgb_img * 255).astype(np.uint8))
-            #plot.show()
-    
-    plot_np = np.stack(stack_np)
-    
-    return plot_np
 
 
 def train_net(net,
@@ -185,9 +159,6 @@ def train_net(net,
                     ''' validates every 10% of the epoch '''
                     if global_step % ((n_train / 10) // true_batch_size) == 0 and data_train_and_validation[1] != '':
                         
-                        ''' show predictions in heatmap format '''
-                        preds_heatmap = show_preds_heatmap(preds)
-                        
                         for tag, value in net.named_parameters():
                             tag = tag.replace('.', '/')
                             writer.add_histogram('weights/' + tag, value.data.cpu().numpy(), global_step)
@@ -211,6 +182,9 @@ def train_net(net,
                         writer.add_scalar('LVOT_diameter_pixel_mean/eval', val_diam_mean, global_step)
                         logging.info('Validation LVOT diameter pixel median: {}'.format(val_diam_median))
                         writer.add_scalar('LVOT_diameter_pixel_median/eval', val_diam_median, global_step)
+
+                        ''' show predictions in heatmap format '''
+                        #preds_heatmap = show_preds_heatmap(preds)
 
                         #writer.add_images('images', imgs, global_step)
                         #writer.add_images('masks/true', true_masks_cat.view(true_masks_cat.shape[0] * true_masks_cat.shape[1], 1, true_masks_cat.shape[2], true_masks_cat.shape[3]), global_step)

@@ -23,99 +23,13 @@ sys.path.insert(0, '..')
 from networks.resnet50_torchvision import fcn_resnet50, fcn_resnet101, deeplabv3_resnet50, deeplabv3_resnet101
 from networks.unet import UNet
 from networks.unet_plusplus import NestedUNet
+from common_utils.heatmap_plot import show_preds_heatmap
+from common_utils.live_augmentation_skimage import augment_imgs_masks_batch
+
 import segmentation_models_pytorch as smp
 
 from itertools import product 
 from datetime import datetime
-
-import matplotlib.pyplot as plt
-
-
-def show_preds_heatmap(preds):
-    ''' creates heatmaps and orders them for saving in summary_writer '''
-    preds_detached = preds.detach().cpu().numpy()
-
-    numpy_stack = []
-    for layer in preds_detached:
-        for channel in layer:
-            maxval = np.max(channel)
-            minval = np.min(channel)
-            temp = (channel - minval) / (maxval - minval)
-            
-            cmap = plt.get_cmap('jet')
-            rgba_img = cmap(temp.squeeze())
-            rgb_img = rgba_img[:, :, :-1] # deletes alphachannel
-            plot_tb = (rgb_img * 255).astype(np.uint8).transpose((2, 0, 1))
-            numpy_stack.append(plot_tb)
-
-            #plot = Image.fromarray((rgb_img * 255).astype(np.uint8))
-            #plot.show()
-    
-    numpy_plot = np.stack(numpy_stack)
-    
-    return numpy_plot
-
-def augment_imgs_masks_batch(imgs_torch_batch, masks_torch_batch):
-    ''' augments images and masks randomly for every batch '''
-    imgs_temp= []
-    masks_temp = []
-
-    for img_mask_torch in zip(imgs_torch_batch, masks_torch_batch): # zips files according to order
-        img_np = img_mask_torch[0].numpy()
-        img_np = img_np.transpose((1, 2, 0)).squeeze()  # reconvert to np img format from dataloader
-        masks_np = [mask.numpy() for mask in img_mask_torch[1]] # in case of multiple masks, masks are always greyscale
-
-        temp = MyLiveAugmentations(img_np, masks_np)
-        augmentation_choice = random.randrange(0, 11)
-
-        if augmentation_choice == 0:
-            temp.my_zoom_out()
-
-        if augmentation_choice == 1:
-            temp.my_x_warp_in()
-
-        if augmentation_choice == 2:
-            temp.my_x_warp_out()
-
-        if augmentation_choice == 3:
-            temp.my_blur()
-
-        if augmentation_choice == 4:
-            temp.my_rotate()
-
-        if augmentation_choice == 5:
-            temp.my_shift()
-
-        if augmentation_choice == 6:
-            temp.my_zoom_in()
-
-        if augmentation_choice == 7:
-            temp.my_gamma_down()
-
-        if augmentation_choice == 8:
-            temp.my_gamma_up()
-
-        if augmentation_choice == 9:
-            temp.my_noise()
-
-        if augmentation_choice == 10:
-            ''' no augmentation '''
-            pass
-
-        ''' crops images and masks to same size after transforms '''
-        temp.crop_img_and_masks_for_output()
-
-        img_augmented_np, masks_augmented_np = temp.get_current_img_and_masks()
-        img_augmented_np = BasicDataset.preprocess(Image.fromarray(img_augmented_np), scale=1) # reprocessing for dataloader
-        masks_augmented_np = [BasicDataset.preprocess(Image.fromarray(mask_augmented_np), scale=1) for mask_augmented_np in masks_augmented_np] # reprocessing for dataloader
-
-        imgs_temp.append(img_augmented_np)
-        masks_temp.append(np.concatenate(masks_augmented_np, axis=0))
-
-    imgs_augmented_stack = np.stack(imgs_temp, axis=0)
-    masks_augmented_stack = np.stack(masks_temp, axis=0)
-
-    return torch.from_numpy(imgs_augmented_stack).type(torch.FloatTensor), torch.from_numpy(masks_augmented_stack).type(torch.FloatTensor)
 
 
 def train_net(net,
@@ -325,8 +239,6 @@ if __name__ == '__main__':
     
     training_parameters = dict(
         data_train_and_validation = [
-            ['GE1956_HMHM_K1', 'GE1956_HMHM_K1'],
-            ['GE1956_HMHM_K2', 'GE1956_HMHM_K2'],
             ['GE1956_HMHM_K3', 'GE1956_HMHM_K3'],
             ['GE1956_HMHM_K4', 'GE1956_HMHM_K4'],
             ['GE1956_HMHM_K5', 'GE1956_HMHM_K5']
