@@ -10,11 +10,12 @@ from PIL import Image
 
 
 class BasicDataset(Dataset):
-    def __init__(self, imgs_dir, masks_dir, img_scale=1, mid_systole_only=False):
+    def __init__(self, imgs_dir, masks_dir, img_scale=1, mid_systole_only=False, coord_conv=False):
         self.imgs_dir = imgs_dir
         self.masks_dir = masks_dir
         self.scale = img_scale
         self.mid_systole = mid_systole_only
+        self.coord_conv = coord_conv
         assert 0 < img_scale <= 1, 'Scale must be between 0 and 1'
 
         self.ids = [splitext(file)[0] for file in listdir(imgs_dir)]
@@ -57,11 +58,32 @@ class BasicDataset(Dataset):
         return np_img
 
     @classmethod
-    def extract_midsystole(cls, np_img, mid_systole):
+    def extract_midsystole(cls, np_img):
         if np_img.shape[0] != 1:
-            if mid_systole == True:
-                np_img = np_img[1, :, :]  # 0 frame before, 1 midsystole, 2 frame after
-                np_img = np.expand_dims(np_img, axis=0)
+            np_img = np_img[1, :, :]  # 0 frame before, 1 midsystole, 2 frame after
+            np_img = np.expand_dims(np_img, axis=0)
+
+        return np_img
+
+    @classmethod
+    def add_coord_conv(cls, np_img):
+        np_img = cls.extract_midsystole(np_img)
+
+        _, y_size, x_size = np_img.shape
+
+        x_map = np.zeros((y_size, x_size))
+        y_map = np.zeros((y_size, x_size))
+
+        for p in range(y_size):
+            y_map[p, :] = (p + 1) / y_size
+
+        for j in range(x_size):
+            x_map[:, j] = (j + 1) / x_size
+
+        x_map = np.expand_dims(x_map, axis=0)
+        y_map = np.expand_dims(y_map, axis=0)
+
+        np_img = np.concatenate((np_img, y_map, x_map), axis=0)
 
         return np_img
 
@@ -82,7 +104,12 @@ class BasicDataset(Dataset):
             f'Image {idx} and mask should be the same size, but are img: {img.size} and mask: {mask.size}'
 
         img = self.preprocess(img, self.scale)
-        img = self.extract_midsystole(img, self.mid_systole)
+
+        if self.mid_systole:
+            img = self.extract_midsystole(img)
+        if self.coord_conv:
+            img = self.add_coord_conv(img)
+
         mask = self.preprocess(mask, self.scale)
 
         return {

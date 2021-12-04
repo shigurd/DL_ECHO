@@ -157,7 +157,7 @@ def train_net(net,
                     loss_batch = 0
                     
                     ''' validates every 10% of the epoch '''
-                    if global_step % ((n_train / 10) // true_batch_size) == 0 and data_train_and_validation[1] != '':
+                    if global_step % ((n_train / 1) // true_batch_size) == 0 and data_train_and_validation[1] != '':
                         
                         for tag, value in net.named_parameters():
                             tag = tag.replace('.', '/')

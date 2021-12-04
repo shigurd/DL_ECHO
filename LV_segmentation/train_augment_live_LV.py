@@ -49,7 +49,8 @@ def train_net(net,
               batch_accumulation=1,
               img_scale=1,
               transfer_learning_path='',
-              mid_systole_only=False):
+              mid_systole_only=False,
+              coord_conv=False):
 
     ''' define optimizer and loss '''
     #optimizer = optim.RMSprop(net.parameters(), lr=learning_rate, weight_decay=1e-8, momentum=0.9)
@@ -77,12 +78,12 @@ def train_net(net,
         train_type = 'EP'
     
     ''' dataloader for training and evaluation '''
-    train = BasicDataset(train_imgs_dir, train_masks_dir, img_scale=img_scale, mid_systole_only=mid_systole_only)
+    train = BasicDataset(train_imgs_dir, train_masks_dir, img_scale=img_scale, mid_systole_only=mid_systole_only, coord_conv=coord_conv)
     n_train = len(train)
     train_loader = DataLoader(train, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True)
     
     if data_train_and_validation[1] != '':
-        val = BasicDataset(validate_imgs_dir, validate_masks_dir, img_scale)
+        val = BasicDataset(validate_imgs_dir, validate_masks_dir, img_scale=img_scale, mid_systole_only=mid_systole_only, coord_conv=coord_conv)
         n_val = len(val)
         val_loader = DataLoader(val, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True, drop_last=True)
 
@@ -168,11 +169,11 @@ def train_net(net,
                     loss_batch = 0
                     
                     # validates every 10% of the epoch
-                    if global_step % ((n_train / 1) // true_batch_size) == 0 and data_train_and_validation[1] != '':
+                    if global_step % ((n_train / (1/5)) // true_batch_size) == 0 and data_train_and_validation[1] != '':
                         
                         for tag, value in net.named_parameters():
                             tag = tag.replace('.', '/')
-                            writer.add_histogram('weights/' + tag, value.data.cpu().numpy(), global_step)
+                            #writer.add_histogram('weights/' + tag, value.data.cpu().numpy(), global_step)
                             #writer.add_histogram('grads/' + tag, value.grad.data.cpu().numpy(), global_step)
                         validate_mean_dice, validate_median_dice, validate_mean_iou, validate_median_iou, validate_mean_fpfn, validate_median_fpfn = validate_mean_and_median(net, val_loader, device)
                         #writer.add_scalar('learning_rate', optimizer.param_groups[0]['learning_rate'], global_step)
@@ -233,28 +234,27 @@ if __name__ == '__main__':
     summary_writer_dir = 'runs'
     
     ''' define model_name before running '''
-    model_name = 'EFFIB0-DICBCE_AL_ADAM'
+    model_name = 'EFFIB0-DICBCE_AL_IMGN_ADAM'
     n_classes = 1
     n_channels = 3
     
     training_parameters = dict(
         data_train_and_validation = [
-            ['GE1956_HMHM_K3', 'GE1956_HMHM_K3'],
-            ['GE1956_HMHM_K4', 'GE1956_HMHM_K4'],
-            ['GE1956_HMHM_K5', 'GE1956_HMHM_K5']
+            ['GE1956_HMLHML', ''],
             ],
-        epochs=[30],
+        epochs=[30*5],
         learning_rate=[0.001],
         batch_size=[10],
         batch_accumulation=[2],
         img_scale=[1],
         transfer_learning_path=[''],
-        mid_systole_only=[False]
+        mid_systole_only=[False],
+        coord_conv=[False]
     )
     
     ''' used to train multiple models in succession. add variables to arrays to make more combinations '''
     param_values = [v for v in training_parameters.values()]
-    for data_train_and_validation, epochs, learning_rate, batch_size, batch_accumulation, img_scale, transfer_learning_path, mid_systole_only in product(*param_values): 
+    for data_train_and_validation, epochs, learning_rate, batch_size, batch_accumulation, img_scale, transfer_learning_path, mid_systole_only, coord_conv in product(*param_values):
 
         current_train_imgs_dir = path.join(data_train_dir, 'imgs', data_train_and_validation[0])
         current_train_masks_dir = path.join(data_train_dir, 'masks', data_train_and_validation[0])
@@ -269,8 +269,9 @@ if __name__ == '__main__':
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         logging.info(f'Using device {device}')
 
-        #net = deeplabv3_resnet50(pretrained=False, progress=True, in_channels=n_channels, num_classes=n_classes, aux_loss=None)
-        net = smp.Unet(encoder_name="efficientnet-b0", encoder_weights=None, in_channels=n_channels, classes=n_classes)
+        #net = fcn_resnet50(pretrained=False, progress=True, in_channels=n_channels, num_classes=n_classes, aux_loss=None)
+        #net = smp.Unet(encoder_name="resnet50", encoder_weights=None, in_channels=n_channels, classes=n_classes, decoder_attention_type='scse',dropout=0.1)
+        net = smp.Unet(encoder_name="efficientnet-b0", encoder_weights='imagenet', in_channels=n_channels, classes=n_classes)
 
         logging.info(f'Network:\n'
                      f'\t{n_channels} input channels\n'
@@ -298,7 +299,8 @@ if __name__ == '__main__':
                       batch_accumulation=batch_accumulation,
                       img_scale=img_scale,
                       transfer_learning_path=transfer_learning_path,
-                      mid_systole_only=mid_systole_only)
+                      mid_systole_only=mid_systole_only,
+                      coord_conv=coord_conv)
         except KeyboardInterrupt:
             torch.save(net.state_dict(), 'INTERRUPTED.pth')
             logging.info('Saved interrupt')

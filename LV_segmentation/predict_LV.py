@@ -22,11 +22,16 @@ def predict_tensor(net,
                 img_pil,
                 device,
                 scale_factor=1,
-                mid_systole=False):
+                mid_systole=False,
+                coord_conv=False):
     net.eval()
 
     img_np = BasicDataset.preprocess(img_pil, scale_factor)
-    img_np = BasicDataset.extract_midsystole(img_np, mid_systole)
+
+    if mid_systole:
+        img_np = BasicDataset.extract_midsystole(img_np)
+    if coord_conv:
+        img_np = BasicDataset.add_coord_conv(img_np)
     
     img_tensor = torch.from_numpy(img_np)
 
@@ -116,15 +121,16 @@ def endocard_epicard_to_tensor(mask_pil):
 if __name__ == "__main__":
     
     ''' define model name, prediction dataset and model parameters '''
-    model_file = f'Sep28_12-00-57_EFFIB0-IMGN_DICBCE_ADAM_T-GE1956_HMHM_MA4_K1_V-GE1956_HMHM_K1_EP30_LR0.001_BS20_SCL1.pth'
-    data_name = 'GE1956_HMHM_K1'
+    model_file = f'Dec03_17-10-02_EFFIB0CC-DICBCE_ADAM_T-GE1956_HMHM_K1_V-GE1956_HMHM_K1_EP30_LR0.001_BS20_SCL1.pth'
+    data_name = 'GE1956_HMLHML_K1'
     n_channels = 3
     n_classes = 1
     scaling = 1
     mask_threshold = 0.5
     mid_systole = False
+    coord_conv = True
     compare_with_ground_truth = True
-    convert_to_epicard_and_endocard = True
+    convert_to_epicard_and_endocard = False
 
     model_path = path.join('checkpoints', model_file)
     dir_img = path.join('data', 'validate', 'imgs', data_name)
@@ -132,7 +138,7 @@ if __name__ == "__main__":
 
     ''' make output dir '''
     if compare_with_ground_truth == True:
-        model_name = f'{model_file.rsplit(".", 1)[0]}_VAL'
+        model_name = f'{data_name}_{model_file.rsplit(".", 1)[0]}_VAL'
     else:
         model_name = f'{model_file.rsplit(".", 1)[0]}_OUT'
 
@@ -145,7 +151,7 @@ if __name__ == "__main__":
     
     ''' define network settings '''
     #net = fcn_resnet50(pretrained=False, progress=True, in_channels=n_channels, num_classes=n_classes, aux_loss=None)
-    net = smp.Unet(encoder_name="efficientnet-b0", encoder_weights="imagenet", in_channels=n_channels, classes=n_classes)
+    net = smp.Unet(encoder_name="efficientnet-b0", encoder_weights=None, in_channels=n_channels, classes=n_classes)
     logging.info("Loading model {}".format(model_path))
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -158,7 +164,7 @@ if __name__ == "__main__":
     logging.info("Checkpoint loaded !")
     
     if compare_with_ground_truth == True:
-        file = open(path.join(predictions_output, f'DICE_DATA_{model_name}.txt'), 'w+')
+        file = open(path.join(predictions_output, f'DICE_DATA.txt'), 'w+')
         file.write('file_name,projection,data_setting,img_quality,gt_quality,dice_score\n')
         file1 = open(path.join(predictions_output, 'temp.txt'), 'w+')
         file1.close()
@@ -171,7 +177,7 @@ if __name__ == "__main__":
         if convert_to_epicard_and_endocard == True:
             endo_output = path.join(predictions_output, 'endocard')
             os.mkdir((endo_output))
-            file_endo = open(path.join(endo_output, f'DICE_DATA_{model_name}_ENDO.txt'), 'w+')
+            file_endo = open(path.join(endo_output, f'DICE_DATA_ENDO.txt'), 'w+')
             file_endo.write('file_name,projection,data_setting,img_quality,gt_quality,dice_score\n')
             file_endo1 = open(path.join(endo_output, 'temp_endo.txt'), 'w+')
             file_endo1.close()
@@ -183,7 +189,7 @@ if __name__ == "__main__":
 
             epi_output = path.join(predictions_output, 'epicard')
             os.mkdir(epi_output)
-            file_epi = open(path.join(epi_output, f'DICE_DATA_{model_name}_EPI.txt'), 'w+')
+            file_epi = open(path.join(epi_output, f'DICE_DATA_EPI.txt'), 'w+')
             file_epi.write('file_name,projection,data_setting,img_quality,gt_quality,dice_score\n')
             file_epi1 = open(path.join(epi_output, 'temp_epi.txt'), 'w+')
             file_epi1.close()
@@ -207,7 +213,8 @@ if __name__ == "__main__":
                                img_pil=img_pil,
                                scale_factor=scaling,
                                device=device,
-                               mid_systole=mid_systole)
+                               mid_systole=mid_systole,
+                               coord_conv=coord_conv)
 
             ''' converting predicted tensor to pil mask '''
             mask_pil_predicted = convert_tensor_mask_to_pil(mask_tensor_predicted)
@@ -271,22 +278,22 @@ if __name__ == "__main__":
             file.close()
             avg_dice = total_dice / (i + 1)
             avg_dice4 = '{:.4f}'.format(avg_dice)[2:] #rounds dice and removes 0
-            os.rename(path.join(predictions_output, 'temp.txt'), path.join(predictions_output, f'AVG_DICE_{avg_dice4}_{model_name}.txt'))
-            os.rename(path.join(predictions_output, 'temp1.txt'), path.join(predictions_output, f'MEDIAN_DICE_{np.median(median_list)}_{model_name}.txt'))
+            os.rename(path.join(predictions_output, 'temp.txt'), path.join(predictions_output, f'AVG_DICE_{avg_dice4}.txt'))
+            os.rename(path.join(predictions_output, 'temp1.txt'), path.join(predictions_output, f'MEDIAN_DICE_{np.median(median_list)}.txt'))
 
             if convert_to_epicard_and_endocard == True:
                 file_endo.close()
                 avg_dice_endo = total_dice_endo / (i + 1)
                 avg_dice_endo4 = '{:.4f}'.format(avg_dice_endo)[2:]  #rounds dice and removes 0
                 os.rename(path.join(endo_output, 'temp_endo.txt'),
-                          path.join(endo_output, f'AVG_DICE_{avg_dice_endo4}_{model_name}_ENDO.txt'))
+                          path.join(endo_output, f'AVG_DICE_{avg_dice_endo4}_ENDO.txt'))
                 os.rename(path.join(endo_output, 'temp_endo1.txt'),
-                          path.join(endo_output, f'MEDIAN_DICE_{np.median(median_list_endo)}_{model_name}_ENDO.txt'))
+                          path.join(endo_output, f'MEDIAN_DICE_{np.median(median_list_endo)}_ENDO.txt'))
 
                 file_epi.close()
                 avg_dice_epi = total_dice_epi / (i + 1)
                 avg_dice_epi4 = '{:.4f}'.format(avg_dice_epi)[2:]  #rounds dice and removes 0
                 os.rename(path.join(epi_output, 'temp_epi.txt'),
-                          path.join(epi_output, f'AVG_DICE_{avg_dice_epi4}_{model_name}_EPI.txt'))
+                          path.join(epi_output, f'AVG_DICE_{avg_dice_epi4}_EPI.txt'))
                 os.rename(path.join(epi_output, 'temp_epi1.txt'),
-                          path.join(epi_output, f'MEDIAN_DICE_{np.median(median_list_epi)}_{model_name}_EPI.txt'))
+                          path.join(epi_output, f'MEDIAN_DICE_{np.median(median_list_epi)}_EPI.txt'))
