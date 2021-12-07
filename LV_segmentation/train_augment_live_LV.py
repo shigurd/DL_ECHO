@@ -110,6 +110,7 @@ def train_net(net,
             Images scaling:     {img_scale}
             Transfer learning:  {transfer_learning_path}
             Mid systole:        {mid_systole_only}
+            Coord conv:         {coord_conv}
         ''')
     else:
         logging.info(f'''Starting training:
@@ -123,6 +124,7 @@ def train_net(net,
             Images scaling:     {img_scale}
             Transfer learning:  {transfer_learning_path}
             Mid systole only:   {mid_systole_only}
+            Coord conv:         {coord_conv}
         ''')
     
     global_step = 0
@@ -234,13 +236,17 @@ if __name__ == '__main__':
     summary_writer_dir = 'runs'
     
     ''' define model_name before running '''
-    model_name = 'EFFIB0-DICBCE_AL_IMGN_ADAM'
+    model_name = 'EFFIB0CC-DICBCE_AL_ADAM'
     n_classes = 1
     n_channels = 3
     
     training_parameters = dict(
         data_train_and_validation = [
-            ['GE1956_HMLHML', ''],
+            ['GE1956_HMLHML_K1', 'GE1956_HMHM_K1'],
+            ['GE1956_HMLHML_K2', 'GE1956_HMHM_K2'],
+            ['GE1956_HMLHML_K3', 'GE1956_HMHM_K3'],
+            ['GE1956_HMLHML_K4', 'GE1956_HMHM_K4'],
+            ['GE1956_HMLHML_K5', 'GE1956_HMHM_K5'],
             ],
         epochs=[30*5],
         learning_rate=[0.001],
@@ -249,7 +255,7 @@ if __name__ == '__main__':
         img_scale=[1],
         transfer_learning_path=[''],
         mid_systole_only=[False],
-        coord_conv=[False]
+        coord_conv=[True]
     )
     
     ''' used to train multiple models in succession. add variables to arrays to make more combinations '''
@@ -271,7 +277,7 @@ if __name__ == '__main__':
 
         #net = fcn_resnet50(pretrained=False, progress=True, in_channels=n_channels, num_classes=n_classes, aux_loss=None)
         #net = smp.Unet(encoder_name="resnet50", encoder_weights=None, in_channels=n_channels, classes=n_classes, decoder_attention_type='scse',dropout=0.1)
-        net = smp.Unet(encoder_name="efficientnet-b0", encoder_weights='imagenet', in_channels=n_channels, classes=n_classes)
+        net = smp.Unet(encoder_name="efficientnet-b0", encoder_weights=None, in_channels=n_channels, classes=n_classes)
 
         logging.info(f'Network:\n'
                      f'\t{n_channels} input channels\n'

@@ -8,11 +8,11 @@ from dicom_extraction_utils_GE.LV_mask_to_AFI_roi_unlimited_points import genera
 
 if __name__ == "__main__":
 
-    prediction_masks = 'Aug28_14-10-36_RES50_DICBCE_ADAM_T-GE1956_HMLHML_MA4_V-_EP30_LR0.001_BS20_SCL1_OUT'
+    prediction_masks = 'Dec03_13-44-18_EFFIB0-DICBCE_AL_TF-CAMUSHM_ADAM_T-GE1956_HMHM_V-NONE_TRANSFER-EP150+150_LR0.001_BS20_SCL1_OUT'
 
     keyfile_csv = r'H:\ML_LV\backup_keyfiles\keyfile_GE1956_QC.csv'
     input_dcm_dir = r'H:\ML_LV\backup_dcm\GE2023_dcm'
-    input_masks_dir = path.join('predictions', prediction_masks)
+    input_masks_dir = path.join('predictions', 'strain', prediction_masks)
 
     output_dcm_original_dir = path.join('predictions_dicom', prediction_masks, 'original')
     output_dcm_predicted_dir = path.join('predictions_dicom', prediction_masks, 'predicted')

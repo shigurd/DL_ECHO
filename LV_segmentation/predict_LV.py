@@ -121,20 +121,20 @@ def endocard_epicard_to_tensor(mask_pil):
 if __name__ == "__main__":
     
     ''' define model name, prediction dataset and model parameters '''
-    model_file = f'Dec03_17-10-02_EFFIB0CC-DICBCE_ADAM_T-GE1956_HMHM_K1_V-GE1956_HMHM_K1_EP30_LR0.001_BS20_SCL1.pth'
-    data_name = 'GE1956_HMLHML_K1'
+    model_file = f'Dec04_22-38-28_EFFIB0-DICBCE_AL_TF-GEHMLHML_ADAM_T-CAMUS1800_HM_V-NONE_TRANSFER-EP150+150_LR0.001_BS20_SCL1.pth'
+    data_name = 'GE1956_HMLHML'
     n_channels = 3
     n_classes = 1
     scaling = 1
     mask_threshold = 0.5
     mid_systole = False
-    coord_conv = True
-    compare_with_ground_truth = True
+    coord_conv = False
+    compare_with_ground_truth = False
     convert_to_epicard_and_endocard = False
 
-    model_path = path.join('checkpoints', model_file)
-    dir_img = path.join('data', 'validate', 'imgs', data_name)
-    dir_mask = path.join('data', 'validate', 'masks', data_name)
+    model_path = path.join('checkpoints', 'strain', model_file)
+    dir_img = path.join('data', 'test', 'imgs', data_name)
+    dir_mask = path.join('data', 'test', 'masks', data_name)
 
     ''' make output dir '''
     if compare_with_ground_truth == True:
@@ -234,8 +234,18 @@ if __name__ == "__main__":
                 total_dice += dice_score
                 median_list = np.append(median_list, dice_score)
                 dice4 = '{:.4f}'.format(dice_score)
-                patient_id, projection, data_setting, img_quality, gt_quality = fn.rsplit('.', 1)[0].rsplit('_', 4)
-                file.write(f'{fn},{projection},{data_setting},{img_quality},{gt_quality},{dice4}\n')
+
+                ''' added support for CAMUS style files with n file tags '''
+                fn_tags_list = fn.rsplit('.', 1)[0].rsplit('_')
+                if len(fn_tags_list) < 5:
+                    write_string = ''
+                    for tag in fn_tags_list:
+                        write_string += f'{tag},'
+                    write_string = write_string[:-1] + '\n'
+                    file.write(write_string)
+                else:
+                    patient_id, projection, data_setting, img_quality, gt_quality = fn.rsplit('.', 1)[0].rsplit('_', 4)
+                    file.write(f'{fn},{projection},{data_setting},{img_quality},{gt_quality},{dice4}\n')
 
                 ''' plotting overlays between predicted masks and gt masks '''
                 comparison_masks = pil_overlay_predicted_and_gt(mask_pil_true, mask_pil_predicted)
