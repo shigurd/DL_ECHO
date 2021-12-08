@@ -302,7 +302,7 @@ if __name__ == "__main__":
     n_classes = 2
     scaling = 1
     compare_with_ground_truth = True
-    output_with_heatmap = True
+    output_with_heatmap = False
 
     model_path = path.join('checkpoints', model_file)
     dir_img = path.join('data', 'validate', 'imgs', data_name)
