@@ -96,11 +96,11 @@ def pil_overlay_predicted_and_gt(mask, pred_img):
     return plot
 
 
-def pil_overlay(foreground, background):
+def pil_overlay(foreground, background, alpha=0.1):
     img1 = foreground.convert("RGBA")
     img2 = background.convert("RGBA")
     
-    overlay = Image.blend(img2, img1, alpha=.1)
+    overlay = Image.blend(img2, img1, alpha=alpha)
     
     return overlay
 
@@ -121,15 +121,15 @@ def endocard_epicard_to_tensor(mask_pil):
 if __name__ == "__main__":
     
     ''' define model name, prediction dataset and model parameters '''
-    model_file = f'Dec04_22-38-28_EFFIB0-DICBCE_AL_TF-GEHMLHML_ADAM_T-CAMUS1800_HM_V-NONE_TRANSFER-EP150+150_LR0.001_BS20_SCL1.pth'
+    model_file = f'Dec07_13-15-18_EFFIB0-DICBCE_AL_IMGN_ADAM_T-GE1956HMLHMLCAMUS1800HM_V-NONE_EP150_LR0.001_BS20_SCL1.pth'
     data_name = 'GE1956_HMLHML'
-    n_channels = 3
+    n_channels = 1
     n_classes = 1
     scaling = 1
     mask_threshold = 0.5
-    mid_systole = False
+    mid_systole = True
     coord_conv = False
-    compare_with_ground_truth = False
+    compare_with_ground_truth = True
     convert_to_epicard_and_endocard = False
 
     model_path = path.join('checkpoints', 'strain', model_file)
@@ -138,7 +138,7 @@ if __name__ == "__main__":
 
     ''' make output dir '''
     if compare_with_ground_truth == True:
-        model_name = f'{data_name}_{model_file.rsplit(".", 1)[0]}_VAL'
+        model_name = f'{data_name}___{model_file.rsplit(".", 1)[0]}_VAL'
     else:
         model_name = f'{model_file.rsplit(".", 1)[0]}_OUT'
 

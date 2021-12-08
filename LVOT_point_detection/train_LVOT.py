@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 from utils.validation_LVOT import validate_mean_and_median_for_distance_and_diameter
 from utils.dataloader_LVOT import BasicDataset
-from utils.point_losses_LVOT import DSNTDoubleLoss, DSNTDistanceDoubleLoss, DistanceDoubleLoss, DSNTDistanceAngleDoubleLoss
+from utils.point_losses_LVOT import DSNTDoubleLoss, DSNTDistanceDoubleLoss, DistanceDoubleLoss, DSNTDistanceAngleDoubleLoss, DSNTJSDDoubleLoss
 
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader
@@ -48,8 +48,9 @@ def train_net(net,
     optimizer = optim.Adam(net.parameters(), lr=learning_rate, weight_decay=1e-8)
     #criterion = DSNTDoubleLoss()
     #criterion = DSNTDistanceDoubleLoss()
+    criterion = DSNTJSDDoubleLoss()
     #criterion = DistanceDoubleLoss()
-    criterion = DSNTDistanceAngleDoubleLoss()
+    #criterion = DSNTDistanceAngleDoubleLoss()
 
     ''' to check if training is from scratch or transfer learning/checkpoint appending '''
     if transfer_learning_path != '':
@@ -161,7 +162,7 @@ def train_net(net,
                         
                         for tag, value in net.named_parameters():
                             tag = tag.replace('.', '/')
-                            writer.add_histogram('weights/' + tag, value.data.cpu().numpy(), global_step)
+                            #writer.add_histogram('weights/' + tag, value.data.cpu().numpy(), global_step)
                             #writer.add_histogram('grads/' + tag, value.grad.data.cpu().numpy(), global_step)
                         val_i_mean, val_s_mean, val_tot_mean, val_tot_median, val_diam_mean, val_diam_median = validate_mean_and_median_for_distance_and_diameter(
                             net, val_loader, device)
@@ -223,7 +224,7 @@ if __name__ == '__main__':
     summary_writer_dir = 'runs'
     
     ''' define model_name before running '''
-    model_name = 'RES50_DSNTDISTANGL_ADAM'
+    model_name = 'RES50_DSNTJSD_ADAM'
     n_classes = 2
     n_channels = 1
     

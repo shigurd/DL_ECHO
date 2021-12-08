@@ -21,6 +21,7 @@ from networks.unet import UNet
 import segmentation_models_pytorch as smp
 
 from dicom_extraction_utils_GE.LVOT_coords import get_cm_coordinates
+from common_utils.heatmap_plot import show_preds_heatmap
 
 
 def predict_tensor(net,
@@ -37,7 +38,7 @@ def predict_tensor(net,
 
     with torch.no_grad():
         output = net(img_tensor)
-        #output = output['out'] # torchvision syntax
+        output = output['out'] # torchvision syntax
 
     return output
 
@@ -290,24 +291,26 @@ def get_output_filenames(in_file):
 
     return out_files
 
+
 if __name__ == "__main__":
     
     ''' define model name, prediction dataset and model parameters '''
     keyfile_csv = r'H:/ML_LVOT/backup_keyfile_and_duplicate/keyfile_GE1424_QC.csv'
-    model_file = 'Sep04_21-18-47_RES50_DSNT_ADAM_T-AVA1314X5_HMHM_MA8_V-_EP30_LR0.001_BS20_SCL1.pth'
-    data_name = 'AVA1314X5_HMLHML'
+    model_file = 'Dec08_02-13-12_RES50_DSNTJSD_ADAM_T-AVA1314X5_HMHM_K1_V-AVA1314X5_HMHM_K1_EP30_LR0.001_BS20_SCL1.pth'
+    data_name = 'AVA1314X5_HMHM_K1'
     n_channels = 1
     n_classes = 2
     scaling = 1
     compare_with_ground_truth = True
+    output_with_heatmap = True
 
     model_path = path.join('checkpoints', model_file)
-    dir_img = path.join('data', 'test', 'imgs', data_name)
-    dir_mask = path.join('data', 'test', 'masks', data_name)
+    dir_img = path.join('data', 'validate', 'imgs', data_name)
+    dir_mask = path.join('data', 'validate', 'masks', data_name)
 
     ''' make output dir '''
     if compare_with_ground_truth == True:
-        model_name = f'{model_file.rsplit(".", 1)[0]}_VAL'
+        model_name = f'{data_name}___{model_file.rsplit(".", 1)[0]}_VAL'
     else:
         model_name = f'{model_file.rsplit(".", 1)[0]}_OUT'
 
@@ -319,8 +322,8 @@ if __name__ == "__main__":
     out_files = get_output_filenames(input_files)
     
     ''' define network settings '''
-    #net = fcn_resnet50(pretrained=False, progress=True, in_channels=n_channels, num_classes=n_classes, aux_loss=None)
-    net = smp.Unet(encoder_name="efficientnet-b0", encoder_weights="imagenet", in_channels=n_channels, classes=n_classes)
+    net = fcn_resnet50(pretrained=False, progress=True, in_channels=n_channels, num_classes=n_classes, aux_loss=None)
+    #net = smp.Unet(encoder_name="efficientnet-b0", encoder_weights="imagenet", in_channels=n_channels, classes=n_classes)
 
     logging.info("Loading model {}".format(model_path))
 
@@ -334,7 +337,7 @@ if __name__ == "__main__":
     logging.info("Checkpoint loaded !")
     
     if compare_with_ground_truth == True:
-        file = open(path.join(predictions_output, f'COORD_DATA_{model_name}.txt'), 'w+')
+        file = open(path.join(predictions_output, f'COORD_DATA.txt'), 'w+')
         file.write('file_name,measure_type,view_type,img_quality,gt_quality,diff_diam_pix,diff_diam_cm,diam_cm\n')
         file1 = open(path.join(predictions_output, 'temp.txt'), 'w+')
         file1.close()
@@ -372,6 +375,14 @@ if __name__ == "__main__":
                                                      img_pil=img_pil,
                                                      scale_factor=scaling,
                                                      device=device)
+
+            ''' get heatmaps from logits '''
+            if output_with_heatmap == True:
+                heatmaps = show_preds_heatmap(masks_tensors_predicted)
+                heatmap_i = np.transpose(np.squeeze(heatmaps[0, :, :, :]), (1, 2, 0))
+                heatmap_s = np.transpose(np.squeeze(heatmaps[1, :, :, :]), (1, 2, 0))
+                heatmap_i_pil = Image.fromarray(heatmap_i)
+                heatmap_s_pil = Image.fromarray(heatmap_s)
 
             ''' if ground truth is available, make overlays and calculate mean and median dice '''
             if compare_with_ground_truth == True:
@@ -427,6 +438,9 @@ if __name__ == "__main__":
 
                 ''' plotting and saving coordinate overlay on original image with gt '''
                 pred_plot = predict_plot_on_image(img_pil, pred_coordinate_list, true_coordinate_list, plot_gt=compare_with_ground_truth)
+                if output_with_heatmap == True:
+                    pred_plot = concat_img(pred_plot, heatmap_i_pil)
+                    pred_plot = concat_img(pred_plot, heatmap_s_pil)
                 pred_plot.save(path.join(predictions_output, f'{str(absdiff_diam_pix)}_{out_fn}'))
 
             else:
@@ -445,17 +459,19 @@ if __name__ == "__main__":
             avg_sum_ed_pix = '{:.4f}'.format(avg_sum_ed_pix)
             avg_lvot_diam_absdiff_pix = '{:.4f}'.format(avg_lvot_diam_absdiff_pix)
             avg_lvot_diam_absdiff_cm = '{:.4f}'.format(avg_lvot_diam_absdiff_cm)
-            os.rename(path.join(predictions_output, 'temp.txt'), path.join(predictions_output, f'AVG_SUM_ED_PIX_{avg_sum_ed_pix}_{model_name}.txt'))
-            os.rename(path.join(predictions_output, 'temp1.txt'), path.join(predictions_output, f'AVG_LVOTD_PIX_{avg_lvot_diam_absdiff_pix}_{model_name}.txt'))
-            os.rename(path.join(predictions_output, 'temp2.txt'), path.join(predictions_output, f'AVG_LVOTD_CM_{avg_lvot_diam_absdiff_cm}_{model_name}.txt'))
-            os.rename(path.join(predictions_output, 'temp3.txt'), path.join(predictions_output, f'MEDIAN_LVOTD_PIX_{"{:.4f}".format(np.median(median_lvot_diam_absdiff_pix))}_{model_name}.txt'))
-            os.rename(path.join(predictions_output, 'temp4.txt'), path.join(predictions_output, f'MEDIAN_LVOTD_CM_{"{:.4f}".format(np.median(median_lvot_diam_absdiff_cm))}_{model_name}.txt'))
-            os.rename(path.join(predictions_output, 'temp5.txt'), path.join(predictions_output, f'MEDIAN_SUM_ED_PIX_{"{:.4f}".format(np.median(median_sum_ed_pix))}_{model_name}.txt'))
+            os.rename(path.join(predictions_output, 'temp.txt'), path.join(predictions_output, f'AVG_SUM_ED_PIX_{avg_sum_ed_pix}.txt'))
+            os.rename(path.join(predictions_output, 'temp1.txt'), path.join(predictions_output, f'AVG_LVOTD_PIX_{avg_lvot_diam_absdiff_pix}.txt'))
+            os.rename(path.join(predictions_output, 'temp2.txt'), path.join(predictions_output, f'AVG_LVOTD_CM_{avg_lvot_diam_absdiff_cm}.txt'))
+            os.rename(path.join(predictions_output, 'temp3.txt'), path.join(predictions_output, f'MEDIAN_LVOTD_PIX_{"{:.4f}".format(np.median(median_lvot_diam_absdiff_pix))}.txt'))
+            os.rename(path.join(predictions_output, 'temp4.txt'), path.join(predictions_output, f'MEDIAN_LVOTD_CM_{"{:.4f}".format(np.median(median_lvot_diam_absdiff_cm))}.txt'))
+            os.rename(path.join(predictions_output, 'temp5.txt'), path.join(predictions_output, f'MEDIAN_SUM_ED_PIX_{"{:.4f}".format(np.median(median_sum_ed_pix))}.txt'))
 
 
 
 
 ''' deprecated as all is done in loss function now '''
+
+
 def coords_from_pred(pred_tensor):
     coordinate_list = []
     for batch in pred_tensor:

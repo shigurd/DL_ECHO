@@ -21,7 +21,7 @@ if __name__ == "__main__":
         mask_pred, img_pred, exam_pred = get_mask_from_dicom(pth_pred)
 
         overlay_mask = pil_overlay_predicted_and_gt(mask_org, mask_pred)
-        joint_overlay = pil_overlay(overlay_mask,img_org)
+        joint_overlay = pil_overlay(overlay_mask, img_org, alpha=0.2)
 
         joint_overlay.show()
 

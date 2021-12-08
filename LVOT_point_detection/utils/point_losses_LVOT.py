@@ -122,6 +122,72 @@ class DSNTDistanceDoubleLoss(nn.Module):
 
         return s / (i + 1)
 
+def jensen_shannon_divergence(input, target):
+    input = input.view(-1)
+    target = target.view(-1)
+
+    kl = nn.KLDivLoss()
+
+    m = 0.5 * (input + target)
+    kl_im = kl(input, m)
+    kl_tm = kl(target, m)
+
+    jsd = 0.5 * kl_im + 0.5 * kl_tm
+
+    return jsd
+
+
+class DSNTJSDDoubleLoss(nn.Module):
+    def __init__(self):
+        super(DSNTJSDDoubleLoss, self).__init__()
+
+    def forward(self, input, target):
+        if input.is_cuda:
+            s = torch.FloatTensor(1).cuda().zero_()
+        else:
+            s = torch.FloatTensor(1).zero_()
+
+        for i, c in enumerate(zip(input, target)):
+            for o, points in enumerate(zip(c[0], c[1])):
+                ''' calculates center of mass of the heatmap with softmax, in other words DSNT '''
+                x_size = points[0].shape[-1]
+                y_size = points[0].shape[-2]
+
+                x_soft_argmax = torch.zeros((y_size, x_size)).cuda()
+                y_soft_argmax = torch.zeros((y_size, x_size)).cuda()
+
+                for p in range(y_size):
+                    y_soft_argmax[p, :] = (p + 1) / y_size
+
+                for j in range(x_size):
+                    x_soft_argmax[:, j] = (j + 1) / x_size
+
+                softmax = nn.Softmax(0)
+                pred_mask_softmax = softmax(points[0].view(-1)).view(points[0].shape)
+
+                pred_x_coord = torch.sum(pred_mask_softmax * x_soft_argmax).cuda()
+                pred_y_coord = torch.sum(pred_mask_softmax * y_soft_argmax).cuda()
+
+                ''' argmax for ground truth '''
+                coord_argmax = torch.argmax(points[1]).detach()
+                true_x_coord = ((coord_argmax % x_size + 1).float() / x_size).cuda()
+                true_y_coord = ((coord_argmax // x_size + 1).float() / y_size).cuda()
+
+                ''' euclidian distance with DSNT, ED is naturally a loss since distance should be minimized '''
+                ed_loss = torch.sqrt((true_x_coord - pred_x_coord) ** 2 + (true_y_coord - pred_y_coord) ** 2)
+
+                ''' option to add MSE to ED loss '''
+                #pred_coords = torch.stack((pred_x_coord, pred_y_coord))
+                #true_coords = torch.stack((true_x_coord, true_y_coord))
+                #coordinate_mse = mse_loss(pred_coords, true_coords)
+
+                ''' jsd for gt masks and logits '''
+                jsd = jensen_shannon_divergence(points[1], pred_mask_softmax)
+
+                s += ed_loss + jsd
+
+        return s / (i + 1)
+
 
 class DistanceDoubleLoss(nn.Module):
     def __init__(self):
