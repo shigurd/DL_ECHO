@@ -10,10 +10,11 @@ from tqdm import tqdm
 
 from utils.validation_LVOT import validate_mean_and_median_for_distance_and_diameter
 from utils.dataloader_LVOT import BasicDataset
-from utils.point_losses_LVOT import DSNTDoubleLoss, DSNTDistanceDoubleLoss, DistanceDoubleLoss, DSNTDistanceAngleDoubleLoss, DSNTJSDDoubleLoss
+from utils.point_losses_LVOT import DSNTDoubleLoss, DSNTDistanceDoubleLoss, DistanceDoubleLoss, DSNTDistanceAngleDoubleLoss, DSNTJSDDoubleLoss, DSNTJSDDistanceDoubleLoss, DSNTDoubleLossNew, DSNTJSDDoubleLossNew
 
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader
+import torch.nn as nn
 
 sys.path.insert(0, '..')
 from networks.resnet50_torchvision import fcn_resnet50, fcn_resnet101, deeplabv3_resnet50, deeplabv3_resnet101
@@ -48,7 +49,10 @@ def train_net(net,
     optimizer = optim.Adam(net.parameters(), lr=learning_rate, weight_decay=1e-8)
     #criterion = DSNTDoubleLoss()
     #criterion = DSNTDistanceDoubleLoss()
-    criterion = DSNTJSDDoubleLoss()
+    #criterion = DSNTJSDDoubleLoss()
+    #criterion = DSNTJSDDistanceDoubleLoss()
+    #criterion = DSNTDoubleLossNew()
+    criterion = DSNTJSDDoubleLossNew()
     #criterion = DistanceDoubleLoss()
     #criterion = DSNTDistanceAngleDoubleLoss()
 
@@ -145,7 +149,7 @@ def train_net(net,
                 loss_batch += loss.item() #moved to compensate for batch repeat
                 
                 loss.backward()
-                #nn.utils.clip_grad_value_(net.parameters(), 0.1)
+                nn.utils.clip_grad_value_(net.parameters(), 0.1)
                 
                 ''' only update optimizer after accumulation '''
                 if (i + 1) % batch_accumulation == 0:
@@ -224,7 +228,7 @@ if __name__ == '__main__':
     summary_writer_dir = 'runs'
     
     ''' define model_name before running '''
-    model_name = 'RES50_DSNTJSD_ADAM'
+    model_name = 'RES50_DSNTJSDNEW_ADAM'
     n_classes = 2
     n_channels = 1
     

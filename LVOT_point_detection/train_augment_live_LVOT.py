@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 from utils.validation_LVOT import validate_mean_and_median_for_distance_and_diameter
 from utils.dataloader_LVOT import BasicDataset
-from utils.point_losses_LVOT import DSNTDistanceAngleDoubleLoss
+from utils.point_losses_LVOT import DSNTDistanceAngleDoubleLoss, DSNTJSDDoubleLoss, DSNTDoubleLoss
 
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader
@@ -45,10 +45,11 @@ def train_net(net,
     ''' define optimizer and loss '''
     #optimizer = optim.RMSprop(net.parameters(), lr=learning_rate, weight_decay=1e-8, momentum=0.9)
     optimizer = optim.Adam(net.parameters(), lr=learning_rate, weight_decay=1e-8)
-    #criterion = DSNTDoubleLoss()
+    criterion = DSNTDoubleLoss()
     #criterion = DSNTDistanceDoubleLoss()
+    #criterion = DSNTJSDDoubleLoss()
     #criterion = DistanceDoubleLoss()
-    criterion = DSNTDistanceAngleDoubleLoss()
+    #criterion = DSNTDistanceAngleDoubleLoss()
 
     ''' to check if training is from scratch or transfer learning/checkpoint appending '''
     if transfer_learning_path != '':
@@ -157,11 +158,11 @@ def train_net(net,
                     loss_batch = 0
                     
                     ''' validates every 10% of the epoch '''
-                    if global_step % ((n_train / 1) // true_batch_size) == 0 and data_train_and_validation[1] != '':
+                    if global_step % ((n_train / (1/5)) // true_batch_size) == 0 and data_train_and_validation[1] != '':
                         
                         for tag, value in net.named_parameters():
                             tag = tag.replace('.', '/')
-                            writer.add_histogram('weights/' + tag, value.data.cpu().numpy(), global_step)
+                            #writer.add_histogram('weights/' + tag, value.data.cpu().numpy(), global_step)
                             #writer.add_histogram('grads/' + tag, value.grad.data.cpu().numpy(), global_step)
                         val_i_mean, val_s_mean, val_tot_mean, val_tot_median, val_diam_mean, val_diam_median = validate_mean_and_median_for_distance_and_diameter(
                             net, val_loader, device)
@@ -223,7 +224,7 @@ if __name__ == '__main__':
     summary_writer_dir = 'runs'
     
     ''' define model_name before running '''
-    model_name = 'RES50_DSNTDISTANGL_ADAM'
+    model_name = 'RES50_DSNT_AL_ADAM'
     n_classes = 2
     n_channels = 1
     
@@ -235,7 +236,7 @@ if __name__ == '__main__':
             ['AVA1314X5_HMHM_K4', 'AVA1314X5_HMHM_K4'],
             ['AVA1314X5_HMHM_K5', 'AVA1314X5_HMHM_K5']
             ],
-        epochs=[30],
+        epochs=[30*5],
         learning_rate=[0.001],
         batch_size=[10],
         batch_accumulation=[2],
