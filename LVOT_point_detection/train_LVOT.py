@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 from utils.validation_LVOT import validate_mean_and_median_for_distance_and_diameter
 from utils.dataloader_LVOT import BasicDataset
-from utils.point_losses_LVOT import DSNTDoubleLoss, DSNTDistanceDoubleLoss, DistanceDoubleLoss, DSNTDistanceAngleDoubleLoss, DSNTJSDDoubleLoss, DSNTJSDDistanceDoubleLoss, DSNTDoubleLossNew, DSNTJSDDoubleLossNew
+from utils.point_losses_LVOT import DSNTDoubleLoss, DSNTDistanceDoubleLoss, DistanceDoubleLoss, DSNTDistanceAngleDoubleLoss, DSNTJSDDoubleLoss, DSNTJSDDistanceDoubleLoss, DSNTDoubleLossNew, DSNTJSDDoubleLossNew, DSNTJSDDistanceDoubleLossNew
 
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader
@@ -52,7 +52,8 @@ def train_net(net,
     #criterion = DSNTJSDDoubleLoss()
     #criterion = DSNTJSDDistanceDoubleLoss()
     #criterion = DSNTDoubleLossNew()
-    criterion = DSNTJSDDoubleLossNew()
+    #criterion = DSNTJSDDoubleLossNew()
+    criterion = DSNTJSDDistanceDoubleLossNew()
     #criterion = DistanceDoubleLoss()
     #criterion = DSNTDistanceAngleDoubleLoss()
 
@@ -143,7 +144,7 @@ def train_net(net,
                 true_masks_cat = torch.cat((true_masks[0], true_masks[1]), 1).to(device=device, dtype=mask_type)
 
                 preds = net(imgs)
-                preds = preds['out'] #torchvision syntax
+                #preds = preds['out'] #torchvision syntax
 
                 loss = criterion(preds, true_masks_cat)
                 loss_batch += loss.item() #moved to compensate for batch repeat
@@ -162,7 +163,7 @@ def train_net(net,
                     loss_batch = 0
                     
                     ''' validates every 10% of the epoch '''
-                    if global_step % ((n_train / 1) // true_batch_size) == 0 and data_train_and_validation[1] != '':
+                    if global_step % ((n_train / (1/2)) // true_batch_size) == 0 and data_train_and_validation[1] != '':
                         
                         for tag, value in net.named_parameters():
                             tag = tag.replace('.', '/')
@@ -228,7 +229,7 @@ if __name__ == '__main__':
     summary_writer_dir = 'runs'
     
     ''' define model_name before running '''
-    model_name = 'RES50_DSNTJSDNEW_ADAM'
+    model_name = 'RES50PSP_DSNTJSDDISTNEW2_ADAM'
     n_classes = 2
     n_channels = 1
     
@@ -240,8 +241,8 @@ if __name__ == '__main__':
             ['AVA1314X5_HMHM_K4', 'AVA1314X5_HMHM_K4'],
             ['AVA1314X5_HMHM_K5', 'AVA1314X5_HMHM_K5']
             ],
-        epochs=[30],
-        learning_rate=[0.001],
+        epochs=[60],
+        learning_rate=[0.0005],
         batch_size=[10],
         batch_accumulation=[2],
         img_scale=[1],
@@ -265,8 +266,8 @@ if __name__ == '__main__':
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         logging.info(f'Using device {device}')
 
-        net = fcn_resnet50(pretrained=False, progress=True, in_channels=n_channels, num_classes=n_classes, aux_loss=None)
-        #net = smp.DeepLabV3Plus(encoder_name="efficientnet-b0", encoder_weights=None, in_channels=n_channels, classes=n_classes)
+        #net = fcn_resnet50(pretrained=False, progress=True, in_channels=n_channels, num_classes=n_classes, aux_loss=None)
+        net = smp.PSPNet(encoder_name="resnet50", encoder_weights=None, in_channels=n_channels, classes=n_classes)
 
         logging.info(f'Network:\n'
                      f'\t{n_channels} input channels\n'

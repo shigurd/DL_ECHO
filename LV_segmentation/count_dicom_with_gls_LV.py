@@ -29,6 +29,66 @@ class GLStracker:
             return False
 
 
+class StudyPatientTracker:
+    def __init__(self, study_tag):
+        self.name = study_tag
+        self.study_list = []
+        self.patient_list = []
+
+    def append_patient(self, new_patient):
+        self.patient_list.append(new_patient)
+
+    def append_study(self, new_study):
+        self.study_list.append(new_study)
+
+    def get_study_tag(self):
+        return self.name
+
+    def get_study_list(self):
+        return self.study_list
+
+    def get_patient_list(self):
+        return self.patient_list
+
+
+def count_patients_in_study(csv_file):
+    studies_found = []
+
+    with open(csv_file, 'r') as read_obj:
+        csv_reader = csv.reader(read_obj)
+        header = next(csv_reader)
+
+        for row in csv_reader:
+            file_id, patient_id, exam_id, projection, img_quality, mask_quality, data_setting = row
+
+            for i, c in enumerate(exam_id):
+                if c in [str(number) for number in range(9)]:
+                    split_idx = i
+                    break
+
+            study_tag = exam_id[:split_idx]
+            patient_without_img_id = patient_id.rsplit('_', 1)[0]
+            exam_without_img_id = exam_id.split('_', 1)[0]
+
+            in_studies = False
+            for study in studies_found:
+                if study_tag == study.get_study_tag():
+                    in_studies = True
+                    if patient_without_img_id not in study.get_patient_list():
+                        study.append_patient(patient_without_img_id)
+                    if exam_without_img_id not in study.get_study_list():
+                        study.append_study(exam_without_img_id)
+
+            if in_studies == False:
+                new_study = StudyPatientTracker(study_tag)
+                new_study.append_patient(patient_without_img_id)
+                new_study.append_study(exam_without_img_id)
+                studies_found.append(new_study)
+
+    for s in studies_found:
+        print(s.get_study_tag(), 'n patients =', len(s.get_patient_list()), 'n study =', len(s.get_study_list()))
+
+
 def csv_input_gls_count(csv_file):
     gls_list = []
     count_hcm_patients = []
@@ -39,7 +99,7 @@ def csv_input_gls_count(csv_file):
         header = next(csv_reader)
 
         for row in csv_reader:
-            file_id, exam_id, projection, img_quality, mask_quality = row
+            file_id, patient_id, exam_id, projection, img_quality, mask_quality, data_setting = row
 
             if len(exam_id.split('_')) == 3:
                 patient_id = exam_id.split('_')[0]
@@ -150,4 +210,5 @@ if __name__ == "__main__":
     lv_keyfile_csv = r'H:\ML_LV\backup_keyfiles\keyfile_GE1956_QC.csv'
     dcm_folder = 'D:\DL_ECHO\LV_segmentation\predictions_dicom\Dec02_15-25-13_EFFIB0-DICBCE_AL_TF-CAMUSHM_ADAM_T-GE1956_HMLHML_V-NONE_TRANSFER-EP150+150_LR0.001_BS20_SCL1_OUT\original'
 
-    keep_gls_count(dcm_folder, lv_keyfile_csv)
+    #keep_gls_count(dcm_folder, lv_keyfile_csv)
+    count_patients_in_study(lv_keyfile_csv)

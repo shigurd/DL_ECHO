@@ -198,7 +198,7 @@ class DSNTDoubleLossNew(nn.Module):
                 pred_x_coord = torch.sum(pred_mask_softmax * x_soft_argmax).cuda()
                 pred_y_coord = torch.sum(pred_mask_softmax * y_soft_argmax).cuda()
 
-                ''' argmax for ground truth '''
+                ''' argmax for ground truth, remember to convert euqlician coords to tanh '''
                 coord_argmax = torch.argmax(points[1]).detach()
                 true_x_coord = ((coord_argmax % x_size + 1 - x_size / 2).float() / x_size).cuda()
                 true_y_coord = ((coord_argmax // x_size + 1 - y_size / 2).float() / y_size).cuda()
@@ -242,10 +242,10 @@ class DSNTJSDDoubleLossNew(nn.Module):
                 pred_x_coord = torch.sum(pred_mask_softmax * x_soft_argmax).cuda()
                 pred_y_coord = torch.sum(pred_mask_softmax * y_soft_argmax).cuda()
 
-                ''' argmax for ground truth '''
+                ''' argmax for ground truth, remember to convert euqlician coords to tanh '''
                 coord_argmax = torch.argmax(points[1]).detach()
-                true_x_coord = ((coord_argmax % x_size + 1).float() / x_size).cuda()
-                true_y_coord = ((coord_argmax // x_size + 1).float() / y_size).cuda()
+                true_x_coord = ((coord_argmax % x_size + 1 - x_size / 2).float() / x_size).cuda()
+                true_y_coord = ((coord_argmax // x_size + 1 - y_size / 2).float() / y_size).cuda()
 
                 ''' euclidian distance with DSNT, ED is naturally a loss since distance should be minimized '''
                 ed_loss = torch.sqrt((true_x_coord - pred_x_coord) ** 2 + (true_y_coord - pred_y_coord) ** 2)
@@ -261,6 +261,78 @@ class DSNTJSDDoubleLossNew(nn.Module):
                 s += ed_loss + jsd
 
         return s / (i + 1)
+
+
+class DSNTJSDDistanceDoubleLossNew(nn.Module):
+    def __init__(self):
+        super(DSNTJSDDistanceDoubleLossNew, self).__init__()
+
+    def forward(self, input, target):
+        if input.is_cuda:
+            s = torch.FloatTensor(1).cuda().zero_()
+        else:
+            s = torch.FloatTensor(1).zero_()
+
+        ''' make the evenly spaced x and y coordinate masks '''
+        x_size = input.shape[-1]
+        y_size = input.shape[-2]
+
+        y_soft_argmax, x_soft_argmax = coodinate_map_tanh_range(y_size, x_size)
+        y_soft_argmax = y_soft_argmax.cuda()
+        x_soft_argmax = x_soft_argmax.cuda()
+
+        for i, c in enumerate(zip(input, target)):
+
+            pred_dist_list_array = []
+            true_dist_list_array = []
+
+            for o, points in enumerate(zip(c[0], c[1])):
+                ''' calculates center of mass of the heatmap with softmax, in other words DSNT '''
+                softmax = nn.Softmax(0)
+                pred_mask_softmax = softmax(points[0].view(-1)).view(points[0].shape)
+
+                pred_x_coord = torch.sum(pred_mask_softmax * x_soft_argmax).cuda()
+                pred_y_coord = torch.sum(pred_mask_softmax * y_soft_argmax).cuda()
+
+                ''' argmax for ground truth, remember to convert euqlician coords to tanh '''
+                coord_argmax = torch.argmax(points[1]).detach()
+                true_x_coord = ((coord_argmax % x_size + 1 - x_size / 2).float() / x_size).cuda()
+                true_y_coord = ((coord_argmax // x_size + 1 - y_size / 2).float() / y_size).cuda()
+
+                ''' euclidian distance with DSNT, ED is naturally a loss since distance should be minimized '''
+                ed_loss = torch.sqrt((true_x_coord - pred_x_coord) ** 2 + (true_y_coord - pred_y_coord) ** 2)
+
+                ''' option to add MSE to ED loss '''
+                # pred_coords = torch.stack((pred_x_coord, pred_y_coord))
+                # true_coords = torch.stack((true_x_coord, true_y_coord))
+                # coordinate_mse = mse_loss(pred_coords, true_coords)
+
+                ''' jsd for gt masks and logits '''
+                jsd = jensen_shannon_divergence(points[1], pred_mask_softmax)
+
+                s += ed_loss + jsd
+
+                ''' add point to distance calculation tensor '''
+                pred_coords_stack = torch.stack((pred_x_coord, pred_y_coord))
+                true_coords_stack = torch.stack((true_x_coord, true_y_coord))
+
+                pred_dist_list_array.append(pred_coords_stack)
+                true_dist_list_array.append(true_coords_stack)
+
+            ''' calculate true absolute distance and predicted absolute distance to find the absolute difference '''
+            pred_dist = torch.sqrt(torch.sum((pred_dist_list_array[0] - pred_dist_list_array[1]) ** 2))
+            true_dist = torch.sqrt(torch.sum((true_dist_list_array[0] - true_dist_list_array[1]) ** 2))
+
+            ''' dist error proportion of relative gt dist, countermeasure against exploding gradient '''
+            diff_dist_abs = torch.sqrt((pred_dist - true_dist) ** 2) / true_dist
+
+            ''' dist error proportion of max distance in 256x256, countermeasure against exploding gradient '''
+            #diff_dist_abs = torch.sqrt((pred_dist - true_dist) ** 2) / (torch.sqrt(torch.Tensor([x_size]).cuda() ** 2 + torch.Tensor([y_size]).cuda() ** 2) - true_dist)
+
+            s += diff_dist_abs
+
+        return s / (i + 1)
+
 
 class DSNTJSDDoubleLoss(nn.Module):
     def __init__(self):
