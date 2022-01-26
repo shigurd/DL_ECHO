@@ -66,7 +66,7 @@ def train_net(net,
             ''' loads model parameters and optimizer status if logged '''
             start_checkpoint = torch.load(transfer_learning_path)
             net.load_state_dict(start_checkpoint['model_state_dict'])
-            optimizer.load_state_dict(start_checkpoint['optimizer_state_dict'])
+            #optimizer.load_state_dict(start_checkpoint['optimizer_state_dict'])
             start_epoch = start_checkpoint['epoch']
         except:
             ''' loads only model parameters '''
@@ -236,21 +236,21 @@ if __name__ == '__main__':
     summary_writer_dir = 'runs'
     
     ''' define model_name before running '''
-    model_name = 'EFFIB0-DICBCE_AL_IMGN_ADAM'
+    model_name = 'EFFIB0-DICBCE_AL_TF-CAMUSHML_ADAM'
     n_classes = 1
-    n_channels = 1
+    n_channels = 3
     
     training_parameters = dict(
         data_train_and_validation = [
-            ['GE1956HMLHMLCAMUS1800HM', ''],
+            ['GE1956_HMLHML', ''],
             ],
         epochs=[30*5],
         learning_rate=[0.001],
         batch_size=[10],
         batch_accumulation=[2],
         img_scale=[1],
-        transfer_learning_path=[''],
-        mid_systole_only=[True],
+        transfer_learning_path=['checkpoints/strain/Jan02_13-01-03_EFFIB0-DICBCE_AL_IMGN_ADAM_T-CAMUS1800_HML_V-NONE_EP150_LR0.001_BS20_SCL1.pth'],
+        mid_systole_only=[False],
         coord_conv=[False]
     )
     
@@ -273,7 +273,7 @@ if __name__ == '__main__':
 
         #net = fcn_resnet50(pretrained=False, progress=True, in_channels=n_channels, num_classes=n_classes, aux_loss=None)
         #net = smp.Unet(encoder_name="resnet50", encoder_weights=None, in_channels=n_channels, classes=n_classes, decoder_attention_type='scse',dropout=0.1)
-        net = smp.Unet(encoder_name="efficientnet-b0", encoder_weights='imagenet', in_channels=n_channels, classes=n_classes)
+        net = smp.Unet(encoder_name="efficientnet-b0", encoder_weights=None, in_channels=n_channels, classes=n_classes)
 
         logging.info(f'Network:\n'
                      f'\t{n_channels} input channels\n'

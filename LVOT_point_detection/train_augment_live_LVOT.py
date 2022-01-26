@@ -4,12 +4,13 @@ import os.path as path
 import sys
 
 import torch
+import torch.nn as nn
 from torch import optim
 from tqdm import tqdm
 
 from utils.validation_LVOT import validate_mean_and_median_for_distance_and_diameter
 from utils.dataloader_LVOT import BasicDataset
-from utils.point_losses_LVOT import DSNTDistanceAngleDoubleLoss, DSNTJSDDoubleLoss, DSNTDoubleLoss
+from utils.point_losses_LVOT import DSNTDistanceAngleDoubleLoss, DSNTJSDDoubleLoss, DSNTDoubleLoss, DSNTJSDDistanceDoubleLossNew
 
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader
@@ -45,11 +46,12 @@ def train_net(net,
     ''' define optimizer and loss '''
     #optimizer = optim.RMSprop(net.parameters(), lr=learning_rate, weight_decay=1e-8, momentum=0.9)
     optimizer = optim.Adam(net.parameters(), lr=learning_rate, weight_decay=1e-8)
-    criterion = DSNTDoubleLoss()
+    #criterion = DSNTDoubleLoss()
     #criterion = DSNTDistanceDoubleLoss()
     #criterion = DSNTJSDDoubleLoss()
     #criterion = DistanceDoubleLoss()
     #criterion = DSNTDistanceAngleDoubleLoss()
+    criterion = DSNTJSDDistanceDoubleLossNew()
 
     ''' to check if training is from scratch or transfer learning/checkpoint appending '''
     if transfer_learning_path != '':
@@ -139,7 +141,7 @@ def train_net(net,
                 true_masks = masks_augmented_batch.to(device=device, dtype=torch.float32)
 
                 preds = net(imgs)
-                preds = preds['out'] #torchvision syntax
+                #preds = preds['out'] #torchvision syntax
 
                 loss = criterion(preds, true_masks)
                 loss_batch += loss.item() #moved to compensate for batch repeat
@@ -158,7 +160,7 @@ def train_net(net,
                     loss_batch = 0
                     
                     ''' validates every 10% of the epoch '''
-                    if global_step % ((n_train / (1/5)) // true_batch_size) == 0 and data_train_and_validation[1] != '':
+                    if global_step % ((n_train / (1/10)) // true_batch_size) == 0 and data_train_and_validation[1] != '':
                         
                         for tag, value in net.named_parameters():
                             tag = tag.replace('.', '/')
@@ -224,9 +226,9 @@ if __name__ == '__main__':
     summary_writer_dir = 'runs'
     
     ''' define model_name before running '''
-    model_name = 'RES50_DSNT_AL_ADAM'
+    model_name = 'EFFIB0_DSNTJSDDISTNEW2_IMGN_AL_ADAM'
     n_classes = 2
-    n_channels = 1
+    n_channels = 3
     
     training_parameters = dict(
         data_train_and_validation = [
@@ -236,8 +238,8 @@ if __name__ == '__main__':
             ['AVA1314X5_HMHM_K4', 'AVA1314X5_HMHM_K4'],
             ['AVA1314X5_HMHM_K5', 'AVA1314X5_HMHM_K5']
             ],
-        epochs=[30*5],
-        learning_rate=[0.001],
+        epochs=[60*5],
+        learning_rate=[0.0005],
         batch_size=[10],
         batch_accumulation=[2],
         img_scale=[1],
@@ -261,8 +263,9 @@ if __name__ == '__main__':
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         logging.info(f'Using device {device}')
 
-        net = fcn_resnet50(pretrained=False, progress=True, in_channels=n_channels, num_classes=n_classes, aux_loss=None)
-        #net = smp.DeepLabV3Plus(encoder_name="efficientnet-b0", encoder_weights=None, in_channels=n_channels, classes=n_classes)
+        #net = fcn_resnet50(pretrained=True, progress=True, in_channels=n_channels, num_classes=21, aux_loss=None) #num_classes = 21 is necessary to load the pretrained model
+        #net.fc = nn.Linear(512, n_classes)  # to change final pretrained output layer for torchvision models
+        net = smp.DeepLabV3Plus(encoder_name="efficientnet-b0", encoder_weights='imagenet', in_channels=n_channels, classes=n_classes)
 
         logging.info(f'Network:\n'
                      f'\t{n_channels} input channels\n'

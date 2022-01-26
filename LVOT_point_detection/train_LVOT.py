@@ -63,7 +63,7 @@ def train_net(net,
             ''' loads model parameters and optimizer status if logged '''
             start_checkpoint = torch.load(transfer_learning_path)
             net.load_state_dict(start_checkpoint['model_state_dict'])
-            optimizer.load_state_dict(start_checkpoint['optimizer_state_dict'])
+            #optimizer.load_state_dict(start_checkpoint['optimizer_state_dict'])
             start_epoch = start_checkpoint['epoch']
         except:
             ''' loads only model parameters '''
@@ -144,7 +144,7 @@ def train_net(net,
                 true_masks_cat = torch.cat((true_masks[0], true_masks[1]), 1).to(device=device, dtype=mask_type)
 
                 preds = net(imgs)
-                #preds = preds['out'] #torchvision syntax
+                preds = preds['out'] #torchvision syntax
 
                 loss = criterion(preds, true_masks_cat)
                 loss_batch += loss.item() #moved to compensate for batch repeat
@@ -229,7 +229,7 @@ if __name__ == '__main__':
     summary_writer_dir = 'runs'
     
     ''' define model_name before running '''
-    model_name = 'RES50PSP_DSNTJSDDISTNEW2_ADAM'
+    model_name = 'RES50_DSNTJSD_ADAM'
     n_classes = 2
     n_channels = 1
     
@@ -266,8 +266,11 @@ if __name__ == '__main__':
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         logging.info(f'Using device {device}')
 
-        #net = fcn_resnet50(pretrained=False, progress=True, in_channels=n_channels, num_classes=n_classes, aux_loss=None)
-        net = smp.PSPNet(encoder_name="resnet50", encoder_weights=None, in_channels=n_channels, classes=n_classes)
+        net = fcn_resnet50(pretrained=False, progress=True, in_channels=n_channels, num_classes=n_classes, aux_loss=None)  # non-pretrained runs
+        #net = fcn_resnet50(pretrained=True, progress=True, in_channels=n_channels, num_classes=21, aux_loss=None) #num_classes = 21 is necessary to load the pretrained model
+        #net.fc = nn.Linear(512, n_classes)  # to change final pretrained output layer for torchvision models
+        #net = smp.Unet(encoder_name="efficientnet-b0", encoder_weights=None, in_channels=n_channels, classes=n_classes)
+        #print(net)
 
         logging.info(f'Network:\n'
                      f'\t{n_channels} input channels\n'

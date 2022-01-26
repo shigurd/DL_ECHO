@@ -1,10 +1,12 @@
 import os.path as path
 import sys
 sys.path.insert(0, '..')
-from data_partition_utils.random_testsample_kfold import random_sample_split
+from data_partition_utils.random_testsample_kfold import random_sample_split, lv_stratified_split
 
 
 if __name__ == '__main__':
+
+    csv_keyfile = r'H:\ML_LV\backup_keyfiles\keyfile_GE1965_QC_CRIDP.csv'
 
     ''' partition of complete dataset into test and train '''
 
@@ -16,7 +18,8 @@ if __name__ == '__main__':
     main_dir_output = path.join('data', 'train')
     partition_dir_output = path.join('data', 'test')
 
-    random_sample_split(datasets_dir, data_name, test_percent, kfold, main_dir_output, partition_dir_output)
+    #random_sample_split(datasets_dir, data_name, test_percent, kfold, main_dir_output, partition_dir_output)
+    lv_stratified_split(datasets_dir, data_name, test_percent, kfold, main_dir_output, partition_dir_output, csv_keyfile)
     
     ''' partition of train into kfold train and validation '''
 
@@ -28,4 +31,5 @@ if __name__ == '__main__':
     main_dir_output2 = path.join('data', 'train')
     partition_dir_output2 = path.join('data', 'validate')
 
-    random_sample_split(datasets_dir2, data_name2, test_percent2, kfold2, main_dir_output2, partition_dir_output2)
+    #random_sample_split(datasets_dir2, data_name2, test_percent2, kfold2, main_dir_output2, partition_dir_output2)
+    lv_stratified_split(datasets_dir2, data_name2, test_percent2, kfold2, main_dir_output2, partition_dir_output2, csv_keyfile)

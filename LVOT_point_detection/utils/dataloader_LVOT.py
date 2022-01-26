@@ -91,6 +91,7 @@ class BasicDataset(Dataset):
         mask_s = Image.open(mask_file[1])
         mask_s = mask_s.convert('L')
         img = Image.open(img_file[0])
+        #img = img.convert('RGB')
 
         assert img.size == mask_i.size and img.size == mask_s.size, \
             f'Image {idx} and mask_i and mask_s should be the same size, but are img: {img.size} and mask_i: {mask_i.size} and mask_s: {mask_s.size}'
