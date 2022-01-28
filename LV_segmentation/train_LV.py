@@ -80,7 +80,7 @@ def train_net(net,
     if data_train_and_validation[1] != '':
         val = BasicDataset(validate_imgs_dir, validate_masks_dir, img_scale=img_scale, mid_systole_only=mid_systole_only, coord_conv=coord_conv)
         n_val = len(val)
-        val_loader = DataLoader(val, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True, drop_last=True)
+        val_loader = DataLoader(val, batch_size=1, shuffle=True, num_workers=4, pin_memory=True, drop_last=True)
 
     ''' make summary writer file with timestamp '''
     time_stamp = datetime.now().strftime('%b%d_%H-%M-%S')
@@ -161,42 +161,41 @@ def train_net(net,
                     
                     global_step += 1
                     loss_batch = 0
-                    
+
                     # validates every 10% of the epoch
-                    if global_step % ((n_train / 1) // true_batch_size) == 0 and data_train_and_validation[1] != '':
-                        
-                        for tag, value in net.named_parameters():
-                            tag = tag.replace('.', '/')
-                            #writer.add_histogram('weights/' + tag, value.data.cpu().numpy(), global_step)
-                            #writer.add_histogram('grads/' + tag, value.grad.data.cpu().numpy(), global_step)
-                        validate_mean_dice, validate_median_dice, validate_mean_iou, validate_median_iou, validate_mean_fpfn, validate_median_fpfn = validate_mean_and_median(net, val_loader, device)
-                        #writer.add_scalar('learning_rate', optimizer.param_groups[0]['learning_rate'], global_step)
-                        
-                        logging.info('Validation Mean Dice: {}'.format(validate_mean_dice))
-                        logging.info('Validation Median Dice: {}'.format(validate_median_dice))
-                        writer.add_scalar('Mean_Dice/eval', validate_mean_dice, global_step)
-                        writer.add_scalar('Median_Dice/eval', validate_median_dice, global_step)
+                    #if global_step % ((n_train / 1) // true_batch_size) == 0 and data_train_and_validation[1] != '':
 
-                        logging.info('Validation Mean IoU: {}'.format(validate_mean_iou))
-                        logging.info('Validation Median IoU: {}'.format(validate_median_iou))
-                        writer.add_scalar('Mean_IoU/eval', validate_mean_iou, global_step)
-                        writer.add_scalar('Median_IoU/eval', validate_median_iou, global_step)
-
-                        logging.info('Validation Mean FPFN: {}'.format(validate_mean_fpfn))
-                        logging.info('Validation Median FPFN: {}'.format(validate_median_fpfn))
-                        writer.add_scalar('Mean_FPFN/eval', validate_mean_fpfn, global_step)
-                        writer.add_scalar('Median_FPFN/eval', validate_median_fpfn, global_step)
-
-                        ''' show prediction in heatmap format '''
-                        #preds_heatmap = show_preds_heatmap(preds)
-
-                        #writer.add_images('images', imgs, global_step)
-                        #writer.add_images('masks/true', true_masks, global_step)
-                        #writer.add_images('masks/pred', torch.sigmoid(preds.detach().cpu()) > 0.5, global_step)
-                        #writer.add_images('heatmap/pred', preds_heatmap, global_step)
-                    
                     optimizer.zero_grad()
-                    
+
+        #for tag, value in net.named_parameters():
+            # tag = tag.replace('.', '/')
+            # writer.add_histogram('weights/' + tag, value.data.cpu().numpy(), global_step)
+            # writer.add_histogram('grads/' + tag, value.grad.data.cpu().numpy(), global_step)
+        validate_mean_dice, validate_median_dice, validate_mean_iou, validate_median_iou = validate_mean_and_median(net, val_loader, device)
+        # writer.add_scalar('learning_rate', optimizer.param_groups[0]['learning_rate'], global_step)
+
+        logging.info('Validation Mean Dice: {}'.format(validate_mean_dice))
+        logging.info('Validation Median Dice: {}'.format(validate_median_dice))
+        writer.add_scalar('Mean_Dice/eval', validate_mean_dice, global_step)
+        writer.add_scalar('Median_Dice/eval', validate_median_dice, global_step)
+
+        logging.info('Validation Mean IoU: {}'.format(validate_mean_iou))
+        logging.info('Validation Median IoU: {}'.format(validate_median_iou))
+        writer.add_scalar('Mean_IoU/eval', validate_mean_iou, global_step)
+        writer.add_scalar('Median_IoU/eval', validate_median_iou, global_step)
+
+        # logging.info('Validation Mean FPFN: {}'.format(validate_mean_fpfn))
+        # logging.info('Validation Median FPFN: {}'.format(validate_median_fpfn))
+        # writer.add_scalar('Mean_FPFN/eval', validate_mean_fpfn, global_step)
+        # writer.add_scalar('Median_FPFN/eval', validate_median_fpfn, global_step)
+
+        ''' show prediction in heatmap format '''
+        # preds_heatmap = show_preds_heatmap(preds)
+        # writer.add_images('images', imgs, global_step)
+        # writer.add_images('masks/true', true_masks, global_step)
+        # writer.add_images('masks/pred', torch.sigmoid(preds.detach().cpu()) > 0.5, global_step)
+        # writer.add_images('heatmap/pred', preds_heatmap, global_step)
+
         try:
             os.mkdir(checkpoints_dir)
             logging.info('Created checkpoint directory')
@@ -228,16 +227,12 @@ if __name__ == '__main__':
     summary_writer_dir = 'runs'
     
     ''' define model_name before running '''
-    model_name = 'EFFIB0-DICBCE_TF-CAMUSHMLIMGN_ADAM'
+    model_name = 'RES50UNET-DICBCE_ADAM'
     n_classes = 1
-    n_channels = 3
+    n_channels = 1
     
     training_parameters = dict(
         data_train_and_validation = [
-            ['GE1956_HMHM_K1', 'GE1956_HMHM_K1'],
-            ['GE1956_HMHM_K2', 'GE1956_HMHM_K2'],
-            ['GE1956_HMHM_K3', 'GE1956_HMHM_K3'],
-            ['GE1956_HMHM_K4', 'GE1956_HMHM_K4'],
             ['GE1956_HMHM_K5', 'GE1956_HMHM_K5']
             ],
         epochs=[30],
@@ -245,8 +240,8 @@ if __name__ == '__main__':
         batch_size=[10],
         batch_accumulation=[2],
         img_scale=[1],
-        transfer_learning_path=['checkpoints/pretrening/Dec16_19-57-49_EFFIB0-DICBCE_IMGN_ADAM_T-CAMUS1800_HML_V-NONE_EP30_LR0.001_BS20_SCL1.pth'],
-        mid_systole_only=[False],
+        transfer_learning_path=[''],
+        mid_systole_only=[True],
         coord_conv=[False]
     )
     
@@ -268,8 +263,9 @@ if __name__ == '__main__':
         logging.info(f'Using device {device}')
 
         #net = fcn_resnet50(pretrained=False, progress=True, in_channels=n_channels, num_classes=n_classes, aux_loss=None)
-        #net = smp.Unet(encoder_name="resnet50", encoder_weights=None, in_channels=n_channels, classes=n_classes, decoder_attention_type='scse',dropout=0.1)
-        net = smp.Unet(encoder_name="efficientnet-b0", encoder_weights=None, in_channels=n_channels, classes=n_classes)
+        #net = UNet(n_channels, n_classes, bilinear=False)
+        net = smp.Unet(encoder_name="resnet50", encoder_weights=None, in_channels=n_channels, classes=n_classes, dropout=0.1)
+        #net = smp.Unet(encoder_name="efficientnet-b0", encoder_weights=None, in_channels=n_channels, classes=n_classes)
 
         logging.info(f'Network:\n'
                      f'\t{n_channels} input channels\n'

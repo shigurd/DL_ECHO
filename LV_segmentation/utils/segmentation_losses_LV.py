@@ -72,7 +72,7 @@ class DiceHard(nn.Module):
             i_flat = torch.sigmoid(c[0]).view(-1)
             i_flat = i_flat > 0.5 # hard cutoff
             t_flat = c[1].view(-1)
-            intersection = (i_flat * t_flat).sum()
+            intersection = torch.sum(i_flat * t_flat)
 
             a_sum = torch.sum(i_flat * i_flat)
             b_sum = torch.sum(t_flat * t_flat)
@@ -111,6 +111,44 @@ class DiceAndIoUHardWithFPFN(nn.Module):
             s_fpfn += (a_sum - intersection + b_sum - intersection) / (input.shape[-1] * input.shape[-2])
 
         return s_dice / (i + 1), s_iou / (i + 1), s_fpfn / (i + 1)
+
+
+class DiceAndIoUHardMedianFix(nn.Module):
+    def __init__(self, smooth=1):
+        super(DiceAndIoUHardMedianFix, self).__init__()
+        self.smooth = smooth
+
+    def forward(self, input, target):
+
+        dice_list_np = np.array([])
+        iou_list_np = np.array([])
+
+        if input.is_cuda:
+            s_dice = torch.FloatTensor(1).cuda().zero_()
+            s_iou = torch.FloatTensor(1).cuda().zero_()
+        else:
+            s_dice = torch.FloatTensor(1).zero_()
+            s_iou = torch.FloatTensor(1).zero_()
+
+        for i, c in enumerate(zip(input, target)):
+            i_flat = torch.sigmoid(c[0]).view(-1)
+            i_flat = i_flat > 0.5  # hard cutoff
+            t_flat = c[1].view(-1)
+            intersection = torch.sum(i_flat * t_flat)
+
+            a_sum = torch.sum(i_flat * i_flat)
+            b_sum = torch.sum(t_flat * t_flat)
+
+            dice = (2. * intersection + self.smooth) / (a_sum + b_sum + self.smooth)
+            iou = (intersection + self.smooth) / (a_sum + b_sum - intersection + self.smooth)
+
+            s_dice += dice
+            s_iou += iou
+
+            dice_list_np = np.append(dice_list_np, dice.item())
+            iou_list_np = np.append(iou_list_np, iou.item())
+
+        return s_dice / (i + 1), s_iou / (i + 1), dice_list_np, iou_list_np
 
 class DiceSoftBCELoss(nn.Module):
     def __init__(self, smooth=1, dice_weight=1, bce_weight=1):
