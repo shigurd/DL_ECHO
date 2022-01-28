@@ -6,6 +6,7 @@ import numpy as np
 
 from .segmentation_losses_LV import DiceAndIoUHardWithFPFN, DiceAndIoUHardMedianFix
 
+
 def validate_mean_and_median(net, loader, device):
     ''' hard dice is used for evaluation '''
     net.eval()
@@ -14,7 +15,6 @@ def validate_mean_and_median(net, loader, device):
     
     tot_dice = 0
     tot_iou = 0
-
 
     median_list_dice_np = np.array([])
     median_list_iou_np = np.array([])

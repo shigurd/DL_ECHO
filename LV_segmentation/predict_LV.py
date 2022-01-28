@@ -140,8 +140,8 @@ def endocard_epicard_to_tensor(mask_pil):
 if __name__ == "__main__":
     
     ''' define model name, prediction dataset and model parameters '''
-    model_file = f'Jan28_13-49-01_RES50UNET-DICBCE_ADAM_T-GE1956_HMHM_K1_V-GE1956_HMHM_K1_EP30_LR0.001_BS20_SCL1.pth'
-    data_name = 'GE1956_HMHM_K1'
+    model_file = f'Jan28_14-24-03_RES50UNET-DICBCE_ADAM_T-GE1956_HMHM_K3_V-GE1956_HMHM_K3_EP30_LR0.001_BS20_SCL1.pth'
+    data_name = 'GE1956_HMHM_K3'
     n_channels = 1
     n_classes = 1
     scaling = 1
@@ -184,16 +184,9 @@ if __name__ == "__main__":
     logging.info("Checkpoint loaded !")
     
     if compare_with_ground_truth == True:
-        file = open(path.join(predictions_output, f'DICE_DATA.txt'), 'w+')
+        file = open(path.join(predictions_output, f'DICE_HD_DATA.txt'), 'w+')
         file.write('file_name,projection,data_setting,img_quality,gt_quality,dice_score,hd_score\n')
-        file1 = open(path.join(predictions_output, 'temp.txt'), 'w+')
-        file1.close()
-        file2 = open(path.join(predictions_output, 'temp1.txt'), 'w+')
-        file2.close()
-        file3 = open(path.join(predictions_output, 'temp2.txt'), 'w+')
-        file3.close()
-        file4 = open(path.join(predictions_output, 'temp3.txt'), 'w+')
-        file4.close()
+        file1 = open(path.join(predictions_output, 'AVG_MEDIAN.txt'), 'w+')
 
         median_dice_list = np.array([])
         median_hd_list = np.array([])
@@ -203,27 +196,25 @@ if __name__ == "__main__":
         if convert_to_epicard_and_endocard == True:
             endo_output = path.join(predictions_output, 'endocard')
             os.mkdir((endo_output))
-            file_endo = open(path.join(endo_output, f'DICE_DATA_ENDO.txt'), 'w+')
-            file_endo.write('file_name,projection,data_setting,img_quality,gt_quality,dice_score\n')
-            file_endo1 = open(path.join(endo_output, 'temp_endo.txt'), 'w+')
-            file_endo1.close()
-            file_endo2 = open(path.join(endo_output, 'temp_endo1.txt'), 'w+')
-            file_endo2.close()
+            file_endo = open(path.join(endo_output, f'DICE_HD_DATA_ENDO.txt'), 'w+')
+            file_endo.write('file_name,projection,data_setting,img_quality,gt_quality,dice_score,hd_score\n')
+            file_endo1 = open(path.join(endo_output, 'AVG_MEDIAN_endo.txt'), 'w+')
 
-            median_list_endo = np.array([])
+            median_dice_list_endo = np.array([])
+            median_hd_list_endo = np.array([])
             total_dice_endo = 0
+            total_hd_endo = 0
 
             epi_output = path.join(predictions_output, 'epicard')
             os.mkdir(epi_output)
-            file_epi = open(path.join(epi_output, f'DICE_DATA_EPI.txt'), 'w+')
-            file_epi.write('file_name,projection,data_setting,img_quality,gt_quality,dice_score\n')
-            file_epi1 = open(path.join(epi_output, 'temp_epi.txt'), 'w+')
-            file_epi1.close()
-            file_epi2 = open(path.join(epi_output, 'temp_epi1.txt'), 'w+')
-            file_epi2.close()
+            file_epi = open(path.join(epi_output, f'DICE_HD_DATA_EPI.txt'), 'w+')
+            file_epi.write('file_name,projection,data_setting,img_quality,gt_quality,dice_score,hd_score\n')
+            file_epi1 = open(path.join(epi_output, 'AVG_MEDIAN_epi.txt'), 'w+')
 
-            median_list_epi = np.array([])
+            median_dice_list_epi = np.array([])
+            median_hd_list_epi = np.array([])
             total_dice_epi = 0
+            total_hd_epi = 0
 
 
     with tqdm(total=len(input_files), desc='Predictions', unit='imgs', leave=False) as pbar:
@@ -262,8 +253,6 @@ if __name__ == "__main__":
                 total_hd += hd_score
                 median_dice_list = np.append(median_dice_list, dice_score)
                 median_hd_list = np.append(median_hd_list, hd_score)
-                dice4 = '{:.4f}'.format(dice_score)
-                hd4 = '{:.4f}'.format(hd_score)
 
                 ''' added support for CAMUS style files with n file tags '''
                 fn_tags_list = fn.rsplit('.', 1)[0].rsplit('_')
@@ -275,7 +264,7 @@ if __name__ == "__main__":
                     file.write(write_string)
                 else:
                     patient_id, projection, data_setting, img_quality, gt_quality = fn.rsplit('.', 1)[0].rsplit('_', 4)
-                    file.write(f'{fn},{projection},{data_setting},{img_quality},{gt_quality},{dice4},{hd4}\n')
+                    file.write(f'{fn},{projection},{data_setting},{img_quality},{gt_quality},{"{:.4f}".format(dice_score)},{"{:.4f}".format(hd_score)}\n')
 
                 ''' plotting overlays between predicted masks and gt masks '''
                 comparison_masks = pil_overlay_predicted_and_gt(mask_pil_true, mask_pil_predicted)
@@ -283,29 +272,37 @@ if __name__ == "__main__":
                 #prediction_on_img = pil_overlay(mask_pil_true.convert('L'), img_pil)
 
                 img_with_comparison = concat_img(img_pil, comparison_masks)
-                img_with_comparison.save(path.join(predictions_output, f'{str(dice4).rsplit(".", 1)[1]}_{out_fn}'))
+                img_with_comparison.save(path.join(predictions_output, f'{str("{:.4f}".format(dice_score).rsplit(".", 1)[1])}_{out_fn}')) #removes 0. from dice
 
                 if convert_to_epicard_and_endocard == True:
                     endocard_tensor_predicted, epicard_tensor_predicted, endocard_pil_predicted, epicard_pil_predicted = endocard_epicard_to_tensor(mask_pil_predicted)
                     endocard_tensor_true, epicard_tensor_true, endocard_pil_true, epicard_pil_true = endocard_epicard_to_tensor(mask_pil_true)
 
                     dice_score_endo = criterion(endocard_tensor_predicted, endocard_tensor_true).item()
+                    hd_score_endo = calc_hausdorff(endocard_tensor_predicted, endocard_tensor_true)
+
                     total_dice_endo += dice_score_endo
-                    median_list_endo = np.append(median_list_endo, dice_score_endo)
-                    dice_endo4 = '{:.4f}'.format(dice_score_endo)
-                    file_endo.write(f'{fn},{projection},{data_setting},{img_quality},{gt_quality},{dice_endo4} \n')
+                    total_hd_endo += hd_score_endo
+                    median_dice_list_endo = np.append(median_dice_list_endo, dice_score_endo)
+                    median_hd_list_endo = np.append(median_hd_list_endo, hd_score_endo)
+
+                    file_endo.write(f'{fn},{projection},{data_setting},{img_quality},{gt_quality},{"{:.4f}".format(dice_score_endo)} \n')
                     comparison_masks_endo = pil_overlay_predicted_and_gt(endocard_pil_true, endocard_pil_predicted)
                     img_with_comparison_endo = concat_img(img_pil, comparison_masks_endo)
-                    img_with_comparison_endo.save(path.join(endo_output, f'{str(dice_endo4).rsplit(".", 1)[1]}_{out_fn}'))
+                    img_with_comparison_endo.save(path.join(endo_output, f'{str("{:.4f}".format(dice_score_endo)).rsplit(".", 1)[1]}_{out_fn}'))
 
                     dice_score_epi = criterion(epicard_tensor_predicted, epicard_tensor_true).item()
+                    hd_score_epi = calc_hausdorff(epicard_tensor_predicted, epicard_tensor_true)
+
                     total_dice_epi += dice_score_epi
-                    median_list_epi = np.append(median_list_epi, dice_score_epi)
-                    dice_epi4 = '{:.4f}'.format(dice_score_epi)
-                    file_epi.write(f'{fn},{projection},{data_setting},{img_quality},{gt_quality},{dice_epi4} \n')
+                    total_hd_epi += hd_score_epi
+                    median_dice_list_epi = np.append(median_dice_list_epi, dice_score_epi)
+                    median_hd_list_epi = np.append(median_hd_list_epi, hd_score_epi)
+
+                    file_epi.write(f'{fn},{projection},{data_setting},{img_quality},{gt_quality},{"{:.4f}".format(dice_score_epi)} \n')
                     comparison_masks_epi = pil_overlay_predicted_and_gt(epicard_pil_true, epicard_pil_predicted)
                     img_with_comparison_epi = concat_img(img_pil, comparison_masks_epi)
-                    img_with_comparison_epi.save(path.join(epi_output, f'{str(dice_epi4).rsplit(".", 1)[1]}_{out_fn}'))
+                    img_with_comparison_epi.save(path.join(epi_output, f'{str("{:.4f}".format(dice_score_epi)).rsplit(".", 1)[1]}_{out_fn}'))
 
             else:
                 ''' just save predicted masks '''
@@ -316,28 +313,36 @@ if __name__ == "__main__":
 
         if compare_with_ground_truth == True:
             file.close()
-            avg_dice = total_dice / (i + 1)
-            avg_dice4 = '{:.4f}'.format(avg_dice)[2:] #rounds dice and removes 0
-            avg_hd = total_hd / (i + 1)
-            avg_hd4 = '{:.4f}'.format(avg_hd)
-            os.rename(path.join(predictions_output, 'temp.txt'), path.join(predictions_output, f'AVG_DICE_{avg_dice4}.txt'))
-            os.rename(path.join(predictions_output, 'temp1.txt'), path.join(predictions_output, f'MEDIAN_DICE_{"{:.4f}".format(np.median(median_dice_list))}.txt'))
-            os.rename(path.join(predictions_output, 'temp2.txt'), path.join(predictions_output, f'AVG_HD_{avg_hd4}.txt'))
-            os.rename(path.join(predictions_output, 'temp3.txt'), path.join(predictions_output, f'MEDIAN_HD_{"{:.4f}".format(np.median(median_hd_list))}.txt'))
+            avg_dice = '{:.4f}'.format(total_dice / (i + 1))
+            median_dice = '{:.4f}'.format(np.median(median_dice_list))
+            avg_hd = '{:.4f}'.format(total_hd / (i + 1))
+            median_hd = '{:.4f}'.format(np.median(median_hd_list))
+
+            file1.write(f'AVG Dice: {avg_dice}\n')
+            file1.write(f'MEAN Dice: {median_dice}\n')
+            file1.write(f'AVG HD: {avg_hd}\n')
+            file1.write(f'MEAN HD: {median_hd}\n')
+            file1.close()
 
             if convert_to_epicard_and_endocard == True:
                 file_endo.close()
-                avg_dice_endo = total_dice_endo / (i + 1)
-                avg_dice_endo4 = '{:.4f}'.format(avg_dice_endo)[2:]  #rounds dice and removes 0
-                os.rename(path.join(endo_output, 'temp_endo.txt'),
-                          path.join(endo_output, f'AVG_DICE_{avg_dice_endo4}_ENDO.txt'))
-                os.rename(path.join(endo_output, 'temp_endo1.txt'),
-                          path.join(endo_output, f'MEDIAN_DICE_{np.median(median_list_endo)}_ENDO.txt'))
+                avg_dice_endo = '{:.4f}'.format(total_dice_endo / (i + 1)) #rounds dice
+                median_dice_endo = '{:.4f}'.format(np.median(median_dice_list_endo))
+                avg_hd_endo = '{:.4f}'.format(total_hd_endo / (i + 1))
+                median_hd_endo = '{:.4f}'.format(np.median(median_hd_list_endo))
+
+                file_endo1.write(f'MEAN Dice: {avg_dice_endo}\n')
+                file_endo1.write(f'Median Dice: {median_dice_endo}\n')
+                file_endo1.write(f'MEAN HD: {avg_hd_endo}\n')
+                file_endo1.write(f'Median HD: {median_hd_endo}\n')
 
                 file_epi.close()
-                avg_dice_epi = total_dice_epi / (i + 1)
-                avg_dice_epi4 = '{:.4f}'.format(avg_dice_epi)[2:]  #rounds dice and removes 0
-                os.rename(path.join(epi_output, 'temp_epi.txt'),
-                          path.join(epi_output, f'AVG_DICE_{avg_dice_epi4}_EPI.txt'))
-                os.rename(path.join(epi_output, 'temp_epi1.txt'),
-                          path.join(epi_output, f'MEDIAN_DICE_{np.median(median_list_epi)}_EPI.txt'))
+                avg_dice_epi =  '{:.4f}'.format(total_dice_epi / (i + 1)) #rounds dice
+                median_dice_epi = '{:.4f}'.format(np.median(median_dice_list_epi))
+                avg_hd_epi = '{:.4f}'.format(total_hd_epi / (i + 1))
+                median_hd_epi = '{:.4f}'.format(np.median(median_hd_list_epi))
+
+                file_epi1.write(f'MEAN Dice: {avg_dice_epi}\n')
+                file_epi1.write(f'Median Dice: {median_dice_epi}\n')
+                file_epi1.write(f'MEAN HD: {avg_hd_epi}\n')
+                file_epi1.write(f'Median HD: {median_hd_epi}\n')
