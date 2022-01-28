@@ -17,6 +17,7 @@ sys.path.insert(0, '..')
 from networks.resnet50_torchvision import fcn_resnet50, fcn_resnet101, deeplabv3_resnet50, deeplabv3_resnet101
 from networks.unet import UNet
 import segmentation_models_pytorch as smp
+import SimpleITK as sitk
 
 def predict_tensor(net,
                 img_pil,
@@ -105,6 +106,24 @@ def pil_overlay(foreground, background, alpha=0.1):
     return overlay
 
 
+def calc_hausdorff(torch_true, torch_pred):
+    true_pil = convert_tensor_mask_to_pil(torch_true).convert('L')
+    pred_pil = convert_tensor_mask_to_pil(torch_pred).convert('L')
+
+    true_np = np.array(true_pil)
+    pred_np = np.array(pred_pil)
+
+    img_sitk_true = sitk.GetImageFromArray(true_np)
+    img_sitk_pred = sitk.GetImageFromArray(pred_np)
+
+    hausdorff_distance_filter = sitk.HausdorffDistanceImageFilter()
+    hausdorff_distance_filter.Execute(img_sitk_true, img_sitk_pred)
+
+    hd = hausdorff_distance_filter.GetHausdorffDistance()
+
+    return hd
+
+
 def endocard_epicard_to_tensor(mask_pil):
     mask_np = np.array(mask_pil)
     endocard_np, epicard_np = get_endocard_epicard_from_np(mask_np)
@@ -121,8 +140,8 @@ def endocard_epicard_to_tensor(mask_pil):
 if __name__ == "__main__":
     
     ''' define model name, prediction dataset and model parameters '''
-    model_file = f'Dec07_13-15-18_EFFIB0-DICBCE_AL_IMGN_ADAM_T-GE1956HMLHMLCAMUS1800HM_V-NONE_EP150_LR0.001_BS20_SCL1.pth'
-    data_name = 'GE1956_HMLHML'
+    model_file = f'Jan28_13-49-01_RES50UNET-DICBCE_ADAM_T-GE1956_HMHM_K1_V-GE1956_HMHM_K1_EP30_LR0.001_BS20_SCL1.pth'
+    data_name = 'GE1956_HMHM_K1'
     n_channels = 1
     n_classes = 1
     scaling = 1
@@ -132,9 +151,9 @@ if __name__ == "__main__":
     compare_with_ground_truth = True
     convert_to_epicard_and_endocard = False
 
-    model_path = path.join('checkpoints', 'strain', model_file)
-    dir_img = path.join('data', 'test', 'imgs', data_name)
-    dir_mask = path.join('data', 'test', 'masks', data_name)
+    model_path = path.join('checkpoints', model_file)
+    dir_img = path.join('data', 'validate', 'imgs', data_name)
+    dir_mask = path.join('data', 'validate', 'masks', data_name)
 
     ''' make output dir '''
     if compare_with_ground_truth == True:
@@ -151,7 +170,8 @@ if __name__ == "__main__":
     
     ''' define network settings '''
     #net = fcn_resnet50(pretrained=False, progress=True, in_channels=n_channels, num_classes=n_classes, aux_loss=None)
-    net = smp.Unet(encoder_name="efficientnet-b0", encoder_weights=None, in_channels=n_channels, classes=n_classes)
+    #net = smp.Unet(encoder_name="efficientnet-b0", encoder_weights=None, in_channels=n_channels, classes=n_classes)
+    net = smp.Unet(encoder_name="resnet50", encoder_weights=None, in_channels=n_channels, classes=n_classes)
     logging.info("Loading model {}".format(model_path))
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -165,14 +185,20 @@ if __name__ == "__main__":
     
     if compare_with_ground_truth == True:
         file = open(path.join(predictions_output, f'DICE_DATA.txt'), 'w+')
-        file.write('file_name,projection,data_setting,img_quality,gt_quality,dice_score\n')
+        file.write('file_name,projection,data_setting,img_quality,gt_quality,dice_score,hd_score\n')
         file1 = open(path.join(predictions_output, 'temp.txt'), 'w+')
         file1.close()
         file2 = open(path.join(predictions_output, 'temp1.txt'), 'w+')
         file2.close()
+        file3 = open(path.join(predictions_output, 'temp2.txt'), 'w+')
+        file3.close()
+        file4 = open(path.join(predictions_output, 'temp3.txt'), 'w+')
+        file4.close()
 
-        median_list = np.array([])
+        median_dice_list = np.array([])
+        median_hd_list = np.array([])
         total_dice = 0
+        total_hd = 0
 
         if convert_to_epicard_and_endocard == True:
             endo_output = path.join(predictions_output, 'endocard')
@@ -229,11 +255,15 @@ if __name__ == "__main__":
 
                 criterion = DiceHard()
                 dice_score = criterion(mask_tensor_predicted, mask_tensor_true).item()
+                hd_score = calc_hausdorff(mask_tensor_predicted, mask_tensor_true)
 
                 ''' calculate mean dice and median dice and logging in txt '''
                 total_dice += dice_score
-                median_list = np.append(median_list, dice_score)
+                total_hd += hd_score
+                median_dice_list = np.append(median_dice_list, dice_score)
+                median_hd_list = np.append(median_hd_list, hd_score)
                 dice4 = '{:.4f}'.format(dice_score)
+                hd4 = '{:.4f}'.format(hd_score)
 
                 ''' added support for CAMUS style files with n file tags '''
                 fn_tags_list = fn.rsplit('.', 1)[0].rsplit('_')
@@ -245,7 +275,7 @@ if __name__ == "__main__":
                     file.write(write_string)
                 else:
                     patient_id, projection, data_setting, img_quality, gt_quality = fn.rsplit('.', 1)[0].rsplit('_', 4)
-                    file.write(f'{fn},{projection},{data_setting},{img_quality},{gt_quality},{dice4}\n')
+                    file.write(f'{fn},{projection},{data_setting},{img_quality},{gt_quality},{dice4},{hd4}\n')
 
                 ''' plotting overlays between predicted masks and gt masks '''
                 comparison_masks = pil_overlay_predicted_and_gt(mask_pil_true, mask_pil_predicted)
@@ -288,8 +318,12 @@ if __name__ == "__main__":
             file.close()
             avg_dice = total_dice / (i + 1)
             avg_dice4 = '{:.4f}'.format(avg_dice)[2:] #rounds dice and removes 0
+            avg_hd = total_hd / (i + 1)
+            avg_hd4 = '{:.4f}'.format(avg_hd)
             os.rename(path.join(predictions_output, 'temp.txt'), path.join(predictions_output, f'AVG_DICE_{avg_dice4}.txt'))
-            os.rename(path.join(predictions_output, 'temp1.txt'), path.join(predictions_output, f'MEDIAN_DICE_{np.median(median_list)}.txt'))
+            os.rename(path.join(predictions_output, 'temp1.txt'), path.join(predictions_output, f'MEDIAN_DICE_{"{:.4f}".format(np.median(median_dice_list))}.txt'))
+            os.rename(path.join(predictions_output, 'temp2.txt'), path.join(predictions_output, f'AVG_HD_{avg_hd4}.txt'))
+            os.rename(path.join(predictions_output, 'temp3.txt'), path.join(predictions_output, f'MEDIAN_HD_{"{:.4f}".format(np.median(median_hd_list))}.txt'))
 
             if convert_to_epicard_and_endocard == True:
                 file_endo.close()
