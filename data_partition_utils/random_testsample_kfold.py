@@ -6,6 +6,79 @@ import shutil
 import glob
 import csv
 
+def patient_list_from_folder(folder_pth):
+    patient_list = []
+    for i in os.listdir(folder_pth):
+        patient = i.split('_', 1)[0]
+        if patient not in patient_list:
+            patient_list.append(patient)
+
+    return patient_list
+
+
+def match_patient_count(smaller_folder_pth, larger_folder_img_pth, larger_folder_mask_pth, new_img_folder, new_mask_folder):
+    smaller_list = patient_list_from_folder(smaller_folder_pth)
+    larger_list = patient_list_from_folder(larger_folder_img_pth)
+    print('larger list n =', len(larger_list))
+    print('smaller list n =', len(smaller_list))
+
+    assert len(larger_list) > len(smaller_list)
+
+    os.mkdir(new_img_folder)
+    os.mkdir(new_mask_folder)
+    for p in range(len(smaller_list)):
+        rand_selection = random.choice(larger_list)
+        larger_list.remove(rand_selection)
+
+        img_wildcard = glob.glob(larger_folder_img_pth + '/' + rand_selection + '*')
+        mask_wildcard = glob.glob(larger_folder_mask_pth + '/' + rand_selection + '*')
+
+        assert len(img_wildcard) == len(mask_wildcard)
+
+        [shutil.copyfile(i, os.path.join(new_img_folder, os.path.basename(i))) for i in img_wildcard]
+        [shutil.copyfile(m, os.path.join(new_mask_folder, os.path.basename(m))) for m in mask_wildcard]
+
+
+def n_patient_partition(img_folder, mask_folder, increment):
+    patient_list = patient_list_from_folder(img_folder)
+    patient_total = len(patient_list)
+    print(f'n patients in {os.path.basename(img_folder)}:', patient_total)
+
+    n_folders = patient_total // increment
+    n_rest = patient_total % increment
+
+    parent_img_dir, data_name = os.path.split(img_folder)
+    parent_mask_dir = os.path.split(mask_folder)[0]
+
+    cumulating_patients = []
+
+    for x in range(1, n_folders + 1):
+        n_patient_increment = increment
+        if x == n_folders:
+            n_patient_increment += n_rest
+
+        for n in range(n_patient_increment):
+            rand_selection = random.choice(patient_list)
+            cumulating_patients.append(rand_selection)
+            patient_list.remove(rand_selection)
+
+        new_folder_name = f'{data_name}{len(cumulating_patients)}'
+        new_img_dir = os.path.join(parent_img_dir, new_folder_name)
+        new_mask_dir = os.path.join(parent_mask_dir, new_folder_name)
+        os.mkdir(new_img_dir)
+        os.mkdir(new_mask_dir)
+
+        print(f'n patients in {new_folder_name}: {len(cumulating_patients)}')
+        for p in cumulating_patients:
+            img_wildcard = glob.glob(img_folder + '/' + p + '*')
+            mask_wildcard = glob.glob(mask_folder + '/' + p + '*')
+
+            assert len(img_wildcard) == len(mask_wildcard)
+
+            [shutil.copyfile(found_img, os.path.join(new_img_dir, os.path.basename(found_img))) for found_img in img_wildcard]
+            [shutil.copyfile(found_mask, os.path.join(new_mask_dir, os.path.basename(found_mask))) for found_mask in mask_wildcard]
+
+
 def split_text_on_first_number(input_str):
     str_numbers = [str(x) for x in range(10)]
     for i, s in enumerate(input_str):

@@ -106,12 +106,15 @@ def pil_overlay(foreground, background, alpha=0.1):
     return overlay
 
 
-def calc_hausdorff(torch_true, torch_pred):
-    true_pil = convert_tensor_mask_to_pil(torch_true).convert('L')
-    pred_pil = convert_tensor_mask_to_pil(torch_pred).convert('L')
+def calc_hausdorff(true_torch, pred_torch):
+    true_torch = torch.sigmoid(true_torch) > 0.5
+    pred_torch = torch.sigmoid(pred_torch) > 0.5
 
-    true_np = np.array(true_pil)
-    pred_np = np.array(pred_pil)
+    true_np = true_torch.squeeze().cpu().numpy()
+    pred_np = pred_torch.squeeze().cpu().numpy()
+
+    true_np = (true_np * 255).astype(np.uint8)
+    pred_np = (pred_np * 255).astype(np.uint8)
 
     img_sitk_true = sitk.GetImageFromArray(true_np)
     img_sitk_pred = sitk.GetImageFromArray(pred_np)
@@ -140,20 +143,20 @@ def endocard_epicard_to_tensor(mask_pil):
 if __name__ == "__main__":
     
     ''' define model name, prediction dataset and model parameters '''
-    model_file = f'Jan28_14-24-03_RES50UNET-DICBCE_ADAM_T-GE1956_HMHM_K3_V-GE1956_HMHM_K3_EP30_LR0.001_BS20_SCL1.pth'
-    data_name = 'GE1956_HMHM_K3'
+    model_file = f'Feb10_15-26-30_EFFIB1-LR5-DICBCE_AL_TF-CAMUSH1800HML_ADAM_T-GE1956_HMLHML400_V-NONE_TRANSFER-EP30+30_LR0.001_BS20_SCL1.pth'
+    data_name = 'GE1956_HMLHML'
     n_channels = 1
     n_classes = 1
     scaling = 1
     mask_threshold = 0.5
     mid_systole = True
     coord_conv = False
-    compare_with_ground_truth = True
+    compare_with_ground_truth = False
     convert_to_epicard_and_endocard = False
 
-    model_path = path.join('checkpoints', model_file)
-    dir_img = path.join('data', 'validate', 'imgs', data_name)
-    dir_mask = path.join('data', 'validate', 'masks', data_name)
+    model_path = path.join('checkpoints/strain', model_file)
+    dir_img = path.join('data', 'test', 'imgs', data_name)
+    dir_mask = path.join('data', 'test', 'masks', data_name)
 
     ''' make output dir '''
     if compare_with_ground_truth == True:
@@ -170,8 +173,11 @@ if __name__ == "__main__":
     
     ''' define network settings '''
     #net = fcn_resnet50(pretrained=False, progress=True, in_channels=n_channels, num_classes=n_classes, aux_loss=None)
-    #net = smp.Unet(encoder_name="efficientnet-b0", encoder_weights=None, in_channels=n_channels, classes=n_classes)
-    net = smp.Unet(encoder_name="resnet50", encoder_weights=None, in_channels=n_channels, classes=n_classes)
+    net = smp.Unet(encoder_name="efficientnet-b1", encoder_weights=None, in_channels=n_channels, classes=n_classes)
+    #net = smp.Unet(encoder_name="resnet50", encoder_weights=None, in_channels=n_channels, classes=n_classes)
+    #net = UNet(n_channels, n_classes, bilinear=False)
+    #net = smp.Unet(encoder_name="se_resnext50_32x4d", encoder_weights=None, in_channels=n_channels, classes=n_classes)
+
     logging.info("Loading model {}".format(model_path))
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -264,7 +270,7 @@ if __name__ == "__main__":
                     file.write(write_string)
                 else:
                     patient_id, projection, data_setting, img_quality, gt_quality = fn.rsplit('.', 1)[0].rsplit('_', 4)
-                    file.write(f'{fn},{projection},{data_setting},{img_quality},{gt_quality},{"{:.4f}".format(dice_score)},{"{:.4f}".format(hd_score)}\n')
+                    file.write(f'{fn},{projection},{data_setting},{img_quality},{gt_quality},{"{:.4f}".format(dice_score)},{"{:.4f}".format(hd_score)}\n') #rounds
 
                 ''' plotting overlays between predicted masks and gt masks '''
                 comparison_masks = pil_overlay_predicted_and_gt(mask_pil_true, mask_pil_predicted)
@@ -286,10 +292,10 @@ if __name__ == "__main__":
                     median_dice_list_endo = np.append(median_dice_list_endo, dice_score_endo)
                     median_hd_list_endo = np.append(median_hd_list_endo, hd_score_endo)
 
-                    file_endo.write(f'{fn},{projection},{data_setting},{img_quality},{gt_quality},{"{:.4f}".format(dice_score_endo)} \n')
+                    file_endo.write(f'{fn},{projection},{data_setting},{img_quality},{gt_quality},{"{:.4f}".format(dice_score_endo)} \n') #rounds
                     comparison_masks_endo = pil_overlay_predicted_and_gt(endocard_pil_true, endocard_pil_predicted)
                     img_with_comparison_endo = concat_img(img_pil, comparison_masks_endo)
-                    img_with_comparison_endo.save(path.join(endo_output, f'{str("{:.4f}".format(dice_score_endo)).rsplit(".", 1)[1]}_{out_fn}'))
+                    img_with_comparison_endo.save(path.join(endo_output, f'{str("{:.4f}".format(dice_score_endo)).rsplit(".", 1)[1]}_{out_fn}')) #removes 0. from dice
 
                     dice_score_epi = criterion(epicard_tensor_predicted, epicard_tensor_true).item()
                     hd_score_epi = calc_hausdorff(epicard_tensor_predicted, epicard_tensor_true)
@@ -299,10 +305,10 @@ if __name__ == "__main__":
                     median_dice_list_epi = np.append(median_dice_list_epi, dice_score_epi)
                     median_hd_list_epi = np.append(median_hd_list_epi, hd_score_epi)
 
-                    file_epi.write(f'{fn},{projection},{data_setting},{img_quality},{gt_quality},{"{:.4f}".format(dice_score_epi)} \n')
+                    file_epi.write(f'{fn},{projection},{data_setting},{img_quality},{gt_quality},{"{:.4f}".format(dice_score_epi)} \n') #rounds
                     comparison_masks_epi = pil_overlay_predicted_and_gt(epicard_pil_true, epicard_pil_predicted)
                     img_with_comparison_epi = concat_img(img_pil, comparison_masks_epi)
-                    img_with_comparison_epi.save(path.join(epi_output, f'{str("{:.4f}".format(dice_score_epi)).rsplit(".", 1)[1]}_{out_fn}'))
+                    img_with_comparison_epi.save(path.join(epi_output, f'{str("{:.4f}".format(dice_score_epi)).rsplit(".", 1)[1]}_{out_fn}')) #removed 0. from dice
 
             else:
                 ''' just save predicted masks '''
@@ -313,36 +319,38 @@ if __name__ == "__main__":
 
         if compare_with_ground_truth == True:
             file.close()
-            avg_dice = '{:.4f}'.format(total_dice / (i + 1))
-            median_dice = '{:.4f}'.format(np.median(median_dice_list))
-            avg_hd = '{:.4f}'.format(total_hd / (i + 1))
-            median_hd = '{:.4f}'.format(np.median(median_hd_list))
+            avg_dice = '{:.4f}'.format(total_dice / (i + 1)) #rounds
+            median_dice = '{:.4f}'.format(np.median(median_dice_list)) #rounds
+            avg_hd = '{:.4f}'.format(total_hd / (i + 1)) #rounds
+            median_hd = '{:.4f}'.format(np.median(median_hd_list)) #rounds
 
             file1.write(f'AVG Dice: {avg_dice}\n')
-            file1.write(f'MEAN Dice: {median_dice}\n')
+            file1.write(f'MEDIAN Dice: {median_dice}\n')
             file1.write(f'AVG HD: {avg_hd}\n')
-            file1.write(f'MEAN HD: {median_hd}\n')
+            file1.write(f'MEDIAN HD: {median_hd}\n')
             file1.close()
 
             if convert_to_epicard_and_endocard == True:
                 file_endo.close()
-                avg_dice_endo = '{:.4f}'.format(total_dice_endo / (i + 1)) #rounds dice
-                median_dice_endo = '{:.4f}'.format(np.median(median_dice_list_endo))
-                avg_hd_endo = '{:.4f}'.format(total_hd_endo / (i + 1))
-                median_hd_endo = '{:.4f}'.format(np.median(median_hd_list_endo))
+                avg_dice_endo = '{:.4f}'.format(total_dice_endo / (i + 1)) #rounds
+                median_dice_endo = '{:.4f}'.format(np.median(median_dice_list_endo)) #rounds
+                avg_hd_endo = '{:.4f}'.format(total_hd_endo / (i + 1)) #rounds
+                median_hd_endo = '{:.4f}'.format(np.median(median_hd_list_endo)) #rounds
 
                 file_endo1.write(f'MEAN Dice: {avg_dice_endo}\n')
-                file_endo1.write(f'Median Dice: {median_dice_endo}\n')
+                file_endo1.write(f'MEDIAN Dice: {median_dice_endo}\n')
                 file_endo1.write(f'MEAN HD: {avg_hd_endo}\n')
-                file_endo1.write(f'Median HD: {median_hd_endo}\n')
+                file_endo1.write(f'MEDIAN HD: {median_hd_endo}\n')
+                file_endo1.close()
 
                 file_epi.close()
-                avg_dice_epi =  '{:.4f}'.format(total_dice_epi / (i + 1)) #rounds dice
-                median_dice_epi = '{:.4f}'.format(np.median(median_dice_list_epi))
-                avg_hd_epi = '{:.4f}'.format(total_hd_epi / (i + 1))
-                median_hd_epi = '{:.4f}'.format(np.median(median_hd_list_epi))
+                avg_dice_epi =  '{:.4f}'.format(total_dice_epi / (i + 1)) #rounds
+                median_dice_epi = '{:.4f}'.format(np.median(median_dice_list_epi)) #rounds
+                avg_hd_epi = '{:.4f}'.format(total_hd_epi / (i + 1)) #rounds
+                median_hd_epi = '{:.4f}'.format(np.median(median_hd_list_epi)) #rounds
 
                 file_epi1.write(f'MEAN Dice: {avg_dice_epi}\n')
-                file_epi1.write(f'Median Dice: {median_dice_epi}\n')
+                file_epi1.write(f'MEDIAN Dice: {median_dice_epi}\n')
                 file_epi1.write(f'MEAN HD: {avg_hd_epi}\n')
-                file_epi1.write(f'Median HD: {median_hd_epi}\n')
+                file_epi1.write(f'MEDIAN HD: {median_hd_epi}\n')
+                file_epi.close()

@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 from utils.validation_LVOT import validate_mean_and_median_for_distance_and_diameter
 from utils.dataloader_LVOT import BasicDataset
-from utils.point_losses_LVOT import DSNTDoubleLoss, DSNTDistanceDoubleLoss, DistanceDoubleLoss, DSNTDistanceAngleDoubleLoss, DSNTJSDDoubleLoss, DSNTJSDDistanceDoubleLoss, DSNTDoubleLossNew, DSNTJSDDoubleLossNew, DSNTJSDDistanceDoubleLossNew
+from utils.point_losses_LVOT import DSNTDoubleLoss, DSNTDistanceDoubleLoss, DistanceDoubleLoss, DSNTDistanceAngleDoubleLoss, DSNTJSDDoubleLoss, DSNTJSDDistanceDoubleLoss, DSNTDistanceDoubleLossNew, DSNTDoubleLossNew, DSNTJSDDoubleLossNew, DSNTJSDDistanceDoubleLossNew
 
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader
@@ -47,13 +47,12 @@ def train_net(net,
     ''' define optimizer and loss '''
     #optimizer = optim.RMSprop(net.parameters(), lr=learning_rate, weight_decay=1e-8, momentum=0.9)
     optimizer = optim.Adam(net.parameters(), lr=learning_rate, weight_decay=1e-8)
-    #criterion = DSNTDoubleLoss()
-    #criterion = DSNTDistanceDoubleLoss()
-    #criterion = DSNTJSDDoubleLoss()
-    #criterion = DSNTJSDDistanceDoubleLoss()
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5)  # patience is number of epochs for improvement
+
     #criterion = DSNTDoubleLossNew()
+    criterion = DSNTDistanceDoubleLossNew()
     #criterion = DSNTJSDDoubleLossNew()
-    criterion = DSNTJSDDistanceDoubleLossNew()
+    #criterion = DSNTJSDDistanceDoubleLossNew()
     #criterion = DistanceDoubleLoss()
     #criterion = DSNTDistanceAngleDoubleLoss()
 
@@ -144,7 +143,7 @@ def train_net(net,
                 true_masks_cat = torch.cat((true_masks[0], true_masks[1]), 1).to(device=device, dtype=mask_type)
 
                 preds = net(imgs)
-                preds = preds['out'] #torchvision syntax
+                #preds = preds['out'] #torchvision syntax
 
                 loss = criterion(preds, true_masks_cat)
                 loss_batch += loss.item() #moved to compensate for batch repeat
@@ -163,41 +162,54 @@ def train_net(net,
                     loss_batch = 0
                     
                     ''' validates every 10% of the epoch '''
-                    if global_step % ((n_train / (1/2)) // true_batch_size) == 0 and data_train_and_validation[1] != '':
-                        
-                        for tag, value in net.named_parameters():
-                            tag = tag.replace('.', '/')
-                            #writer.add_histogram('weights/' + tag, value.data.cpu().numpy(), global_step)
-                            #writer.add_histogram('grads/' + tag, value.grad.data.cpu().numpy(), global_step)
-                        val_i_mean, val_s_mean, val_tot_mean, val_tot_median, val_diam_mean, val_diam_median = validate_mean_and_median_for_distance_and_diameter(
-                            net, val_loader, device)
-                        #writer.add_scalar('learning_rate', optimizer.param_groups[0]['lr'], global_step)
-
-                        #logging.info('Validation ED inferior mean: {}'.format(val_i_mean))
-                        writer.add_scalar('ED_inferior_mean/eval', val_i_mean, global_step)
-
-                        #logging.info('Validation ED superior mean: {}'.format(val_s_mean))
-                        writer.add_scalar('ED_superior_mean/eval', val_s_mean, global_step)
-
-                        logging.info('Validation ED total pixel mean: {}'.format(val_tot_mean))
-                        writer.add_scalar('ED_total_mean/eval', val_tot_mean, global_step)
-                        logging.info('Validation ED total pixel median: {}'.format(val_tot_median))
-                        writer.add_scalar('ED_total_median/eval', val_tot_median, global_step)
-
-                        logging.info('Validation LVOT diameter pixel mean: {}'.format(val_diam_mean))
-                        writer.add_scalar('LVOT_diameter_pixel_mean/eval', val_diam_mean, global_step)
-                        logging.info('Validation LVOT diameter pixel median: {}'.format(val_diam_median))
-                        writer.add_scalar('LVOT_diameter_pixel_median/eval', val_diam_median, global_step)
-
-                        ''' show predictions in heatmap format '''
-                        #preds_heatmap = show_preds_heatmap(preds)
-
-                        #writer.add_images('images', imgs, global_step)
-                        #writer.add_images('masks/true', true_masks_cat.view(true_masks_cat.shape[0] * true_masks_cat.shape[1], 1, true_masks_cat.shape[2], true_masks_cat.shape[3]), global_step)
-                        #writer.add_images('masks/pred', preds_heatmap, global_step)
+                    #if global_step % ((n_train / (1/2)) // true_batch_size) == 0 and data_train_and_validation[1] != '':
                     
                     optimizer.zero_grad()
-                    
+
+        if data_train_and_validation[1] != '':
+            ''' logging moved here for epoch '''
+            #for tag, value in net.named_parameters():
+                #tag = tag.replace('.', '/')
+                # writer.add_histogram('weights/' + tag, value.data.cpu().numpy(), global_step)
+                # writer.add_histogram('grads/' + tag, value.grad.data.cpu().numpy(), global_step)
+            val_i_mean, val_s_mean, val_tot_mean, val_tot_median, val_diam_mean, val_diam_median = validate_mean_and_median_for_distance_and_diameter(
+                net, val_loader, device)
+
+            current_lr = scheduler.optimizer.param_groups[0]['lr']
+            writer.add_scalar('Learning_rate', current_lr, global_step)
+            logging.info('Learning rate : {}'.format(current_lr))
+            scheduler.step(val_tot_mean)
+
+            # logging.info('Validation ED inferior mean: {}'.format(val_i_mean))
+            writer.add_scalar('ED_inferior_mean/eval', val_i_mean, global_step)
+
+            # logging.info('Validation ED superior mean: {}'.format(val_s_mean))
+            writer.add_scalar('ED_superior_mean/eval', val_s_mean, global_step)
+
+            logging.info('Validation ED total pixel mean: {}'.format(val_tot_mean))
+            writer.add_scalar('ED_total_mean/eval', val_tot_mean, global_step)
+            logging.info('Validation ED total pixel median: {}'.format(val_tot_median))
+            writer.add_scalar('ED_total_median/eval', val_tot_median, global_step)
+
+            logging.info('Validation LVOT diameter pixel mean: {}'.format(val_diam_mean))
+            writer.add_scalar('LVOT_diameter_pixel_mean/eval', val_diam_mean, global_step)
+            logging.info('Validation LVOT diameter pixel median: {}'.format(val_diam_median))
+            writer.add_scalar('LVOT_diameter_pixel_median/eval', val_diam_median, global_step)
+
+            ''' show predictions in heatmap format '''
+            # preds_heatmap = show_preds_heatmap(preds)
+            # writer.add_images('images', imgs, global_step)
+            # writer.add_images('masks/true', true_masks_cat.view(true_masks_cat.shape[0] * true_masks_cat.shape[1], 1, true_masks_cat.shape[2], true_masks_cat.shape[3]), global_step)
+            # writer.add_images('masks/pred', preds_heatmap, global_step)
+        else:
+            ''' lower learning rate for optim for 2 stages '''
+            if epoch == 18:
+                optimizer.param_groups[0]['lr'] *= 0.1
+            elif epoch == 23:
+                optimizer.param_groups[0]['lr'] *= 0.1
+            current_lr = optimizer.param_groups[0]['lr']
+            logging.info('Learning rate : {}'.format(current_lr))
+
         try:
             os.mkdir(checkpoints_dir)
             logging.info('Created checkpoint directory')
@@ -229,7 +241,7 @@ if __name__ == '__main__':
     summary_writer_dir = 'runs'
     
     ''' define model_name before running '''
-    model_name = 'RES50_DSNTJSD_ADAM'
+    model_name = 'EFFIB1UNET_DSNTDIST_LR5_ADAM'
     n_classes = 2
     n_channels = 1
     
@@ -241,8 +253,8 @@ if __name__ == '__main__':
             ['AVA1314X5_HMHM_K4', 'AVA1314X5_HMHM_K4'],
             ['AVA1314X5_HMHM_K5', 'AVA1314X5_HMHM_K5']
             ],
-        epochs=[60],
-        learning_rate=[0.0005],
+        epochs=[30],
+        learning_rate=[0.001],
         batch_size=[10],
         batch_accumulation=[2],
         img_scale=[1],
@@ -266,10 +278,10 @@ if __name__ == '__main__':
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         logging.info(f'Using device {device}')
 
-        net = fcn_resnet50(pretrained=False, progress=True, in_channels=n_channels, num_classes=n_classes, aux_loss=None)  # non-pretrained runs
+        #net = fcn_resnet50(pretrained=False, progress=True, in_channels=n_channels, num_classes=n_classes, aux_loss=None)  # non-pretrained runs
         #net = fcn_resnet50(pretrained=True, progress=True, in_channels=n_channels, num_classes=21, aux_loss=None) #num_classes = 21 is necessary to load the pretrained model
         #net.fc = nn.Linear(512, n_classes)  # to change final pretrained output layer for torchvision models
-        #net = smp.Unet(encoder_name="efficientnet-b0", encoder_weights=None, in_channels=n_channels, classes=n_classes)
+        net = smp.Unet(encoder_name="efficientnet-b1", encoder_weights=None, in_channels=n_channels, classes=n_classes)
         #print(net)
 
         logging.info(f'Network:\n'

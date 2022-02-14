@@ -13,10 +13,11 @@ def validate_mean_and_median_for_distance_and_diameter(net, loader, device):
 
     i_tot_abs = 0
     s_tot_abs = 0
-    tot_abs = 0
-    median_list_tot_abs_np = np.array([])
 
+    tot_abs = 0
     tot_diam_abs = 0
+
+    median_list_tot_abs_np = np.array([])
     median_list_diam_abs_np = np.array([])
 
     with tqdm(total=n_val, desc='Validation round', unit='batch', leave=False) as pbar:
@@ -30,18 +31,19 @@ def validate_mean_and_median_for_distance_and_diameter(net, loader, device):
 
             with torch.no_grad():
                 preds = net(imgs)
-                preds = preds['out'] # torchvision syntax
+                #preds = preds['out'] # torchvision syntax
 
             loss_eval = PixelDSNTDistanceDoubleEval()
             ''' outputs absolute inferior loss, superior loss, total loss and diameter difference '''
-            eval_i_abs, eval_s_abs, eval_tot_abs, eval_diameter_abs = loss_eval(preds, true_masks_cat)
+            eval_i_abs, eval_s_abs, eval_tot_abs, eval_diameter_abs, eval_tot_list, eval_diam_list = loss_eval(preds, true_masks_cat)
 
             i_tot_abs += eval_i_abs.item()
             s_tot_abs += eval_s_abs.item()
+
             tot_abs += eval_tot_abs.item()
-            median_list_tot_abs_np = np.append(median_list_tot_abs_np, eval_tot_abs.item())
             tot_diam_abs += eval_diameter_abs.item()
-            median_list_diam_abs_np = np.append(median_list_diam_abs_np, eval_diameter_abs.item())
+            median_list_tot_abs_np = np.concatenate((median_list_tot_abs_np, eval_tot_list), 0)
+            median_list_diam_abs_np = np.concatenate((median_list_diam_abs_np, eval_diam_list), 0)
             pbar.update()
 
     mean_i_dist_abs = i_tot_abs / n_val

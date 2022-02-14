@@ -4,6 +4,7 @@ from torch.autograd import Function, Variable
 import torch.nn.functional as F
 
 import numpy as np
+import SimpleITK as sitk
 
 from scipy.ndimage import distance_transform_edt
 
@@ -149,6 +150,74 @@ class DiceAndIoUHardMedianFix(nn.Module):
             iou_list_np = np.append(iou_list_np, iou.item())
 
         return s_dice / (i + 1), s_iou / (i + 1), dice_list_np, iou_list_np
+
+
+def calc_hausdorff(true_torch, pred_torch):
+    true_torch = torch.sigmoid(true_torch) > 0.5
+    pred_torch = torch.sigmoid(pred_torch) > 0.5
+
+    true_np = true_torch.squeeze().cpu().numpy()
+    pred_np = pred_torch.squeeze().cpu().numpy()
+
+    true_np = (true_np * 255).astype(np.uint8)
+    pred_np = (pred_np * 255).astype(np.uint8)
+
+    img_sitk_true = sitk.GetImageFromArray(true_np)
+    img_sitk_pred = sitk.GetImageFromArray(pred_np)
+
+    hausdorff_distance_filter = sitk.HausdorffDistanceImageFilter()
+    hausdorff_distance_filter.Execute(img_sitk_true, img_sitk_pred)
+
+    hd = hausdorff_distance_filter.GetHausdorffDistance()
+
+    return hd
+
+
+class DiceAndIoUHardWithHD(nn.Module):
+    def __init__(self, smooth=1):
+        super(DiceAndIoUHardWithHD, self).__init__()
+        self.smooth = smooth
+
+    def forward(self, input, target):
+
+        dice_list_np = np.array([])
+        iou_list_np = np.array([])
+        hd_list_np = np.array([])
+        s_hd = 0
+
+        if input.is_cuda:
+            s_dice = torch.FloatTensor(1).cuda().zero_()
+            s_iou = torch.FloatTensor(1).cuda().zero_()
+        else:
+            s_dice = torch.FloatTensor(1).zero_()
+            s_iou = torch.FloatTensor(1).zero_()
+
+        for i, c in enumerate(zip(input, target)):
+            i_flat = torch.sigmoid(c[0]).view(-1)
+            i_flat = i_flat > 0.5  # hard cutoff
+            t_flat = c[1].view(-1)
+            intersection = torch.sum(i_flat * t_flat)
+
+            a_sum = torch.sum(i_flat * i_flat)
+            b_sum = torch.sum(t_flat * t_flat)
+
+            dice = (2. * intersection + self.smooth) / (a_sum + b_sum + self.smooth)
+            iou = (intersection + self.smooth) / (a_sum + b_sum - intersection + self.smooth)
+            try:
+                hd = calc_hausdorff(c[1], c[0]) #note that this is not tensor
+            except:
+                hd = 999
+
+            s_dice += dice
+            s_iou += iou
+            s_hd += hd
+
+            dice_list_np = np.append(dice_list_np, dice.item())
+            iou_list_np = np.append(iou_list_np, iou.item())
+            hd_list_np = np.append(hd_list_np, hd)
+
+        return s_dice / (i + 1), s_iou / (i + 1), s_hd / (i + 1), dice_list_np, iou_list_np, hd_list_np
+
 
 class DiceSoftBCELoss(nn.Module):
     def __init__(self, smooth=1, dice_weight=1, bce_weight=1):

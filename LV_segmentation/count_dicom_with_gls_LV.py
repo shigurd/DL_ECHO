@@ -1,5 +1,6 @@
 import os
 import csv
+from data_partition_utils.random_testsample_kfold import split_text_on_first_number
 
 class GLStracker:
     def __init__(self, unique_id):
@@ -206,9 +207,64 @@ def get_csv_tags(dcm_fn, csv_file):
             print(dcm_fn, 'not found')
 
 
+def get_train_val_test_info(img_folder_pth, keyfile_csv):
+    gls_list = []
+
+    for fn in os.listdir(img_folder_pth):
+        patient_id_folder = fn.rsplit('_', 4)[0]
+
+        with open(keyfile_csv, 'r') as read_obj:
+            csv_reader = csv.reader(read_obj)
+            header = next(csv_reader)
+
+            found_in_csv = False
+            for row in csv_reader:
+                file_id, patient_id, exam_id, projection, img_quality, mask_quality, data_setting = row
+                if patient_id_folder == patient_id:
+                    found_in_csv = True
+
+                    found = False
+                    for x in gls_list:
+                        if x.get_name() == exam_id:
+                            found = True
+                            x.register_projection(projection)
+
+                    if found == False:
+                        temp = GLStracker(exam_id)
+                        temp.register_projection(projection)
+                        gls_list.append(temp)
+
+            if found_in_csv == False:
+                print(fn, 'not found in csv')
+
+
+    studies = dict()
+    for gls in gls_list:
+        study_group = split_text_on_first_number(gls.get_name())[0]
+
+        if study_group not in studies:
+            studies[study_group] = [gls]
+        else:
+            studies[study_group].append(gls)
+
+    [[print(j.get_name()) for j in studies[i]] for i in studies]
+    for key in studies:
+        dict_list = studies[key]
+        print(f'{key} exams = {len(studies[key])}')
+        gls_in_study = 0
+        for item in dict_list:
+            if item.has_gls() == True:
+                gls_in_study += 1
+                #print(item.get_name())
+        print(f'{key} exams that has gls = {gls_in_study}')
+
+
 if __name__ == "__main__":
-    lv_keyfile_csv = r'H:\ML_LV\backup_keyfiles\keyfile_GE1956_QC.csv'
+    lv_keyfile_csv = r'H:\ML_LV\backup_keyfiles\keyfile_GE1965_QC_CRIDP.csv'
     dcm_folder = 'D:\DL_ECHO\LV_segmentation\predictions_dicom\Dec02_15-25-13_EFFIB0-DICBCE_AL_TF-CAMUSHM_ADAM_T-GE1956_HMLHML_V-NONE_TRANSFER-EP150+150_LR0.001_BS20_SCL1_OUT\original'
 
+    img_folder = r'D:\DL_ECHO\LV_segmentation\data\test\imgs\GE1956_HMLHML'
+
+    get_train_val_test_info(img_folder, lv_keyfile_csv)
     #keep_gls_count(dcm_folder, lv_keyfile_csv)
-    count_patients_in_study(lv_keyfile_csv)
+    #count_patients_in_study(lv_keyfile_csv)
