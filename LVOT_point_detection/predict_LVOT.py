@@ -224,7 +224,7 @@ def calculate_lvot_diameter(x1, y1, x2, y2):
     return diam
 
 def predict_cm_coords_and_diameter(file_id, pred_coord_list_pix, true_coord_list_pix, keyfile_csv):
-    ''' input format of pix_coords is [[x1_cm, y1_pix] [x2, y2_pix]] '''
+    ''' input format of pix_coords is [[x1_pix, y1_pix] [x2_pix, y2_pix]], in other words list and not np(might change later) '''
 
     ''' file format is patient_number, img_number, img_type, img_zoom, i_quality, m_quality '''
     file_id = file_id.rsplit('_', 4)[0]
@@ -243,22 +243,31 @@ def predict_cm_coords_and_diameter(file_id, pred_coord_list_pix, true_coord_list
             if file_id == patient_id:
                 found = True
 
-                ''' caluculate pixel diameter, negative number indicate too short diameter, positive number indicate too long diameter '''
+                ''' calculate pixel diameter, negative number indicate too short diameter, positive number indicate too long diameter '''
                 pred_diam_pix = calculate_lvot_diameter(pred_coord_list_pix[0][0], pred_coord_list_pix[0][1], pred_coord_list_pix[1][0], pred_coord_list_pix[1][1])
                 true_diam_pix = calculate_lvot_diameter(true_coord_list_pix[0][0], true_coord_list_pix[0][1], true_coord_list_pix[1][0], true_coord_list_pix[1][1])
-                #diff_diam_pix = pred_diam_pix - true_diam_pix
+                diff_diam_pix = pred_diam_pix - true_diam_pix
+
+                ''' calculate i_ed_pix and s_ed_pix '''
+                i_ed_pix = calculate_lvot_diameter(pred_coord_list_pix[0][0], pred_coord_list_pix[0][1], true_coord_list_pix[0][0], true_coord_list_pix[0][1])
+                s_ed_pix = calculate_lvot_diameter(pred_coord_list_pix[1][0], pred_coord_list_pix[1][1], true_coord_list_pix[1][0], true_coord_list_pix[1][1])
+                tot_ed_pix = i_ed_pix + s_ed_pix
 
                 ''' convert pixel to cm with scanconverted parameters '''
                 pred_coord_list_pix = np.array(pred_coord_list_pix)
                 pred_coords_cm = get_cm_coordinates(pred_coord_list_pix, sc_param)
-
                 true_coord_list_pix = np.array(true_coord_list_pix)
                 true_coords_cm = get_cm_coordinates(true_coord_list_pix, sc_param)
 
-                ''' caluculate cm diameter, negative number indicate too short diameter, positive number indicate too long diameter '''
+                ''' calculate cm diameter, negative number indicate too short diameter, positive number indicate too long diameter '''
                 pred_diam_cm = calculate_lvot_diameter(pred_coords_cm[0][0], pred_coords_cm[0][1], pred_coords_cm[1][0], pred_coords_cm[1][1])
                 true_diam_cm = calculate_lvot_diameter(true_coords_cm[0][0], true_coords_cm[0][1], true_coords_cm[1][0], true_coords_cm[1][1])
                 diff_diam_cm = pred_diam_cm - true_diam_cm
+
+                ''' calculate i_ed_pix and s_ed_pix '''
+                i_ed_cm = calculate_lvot_diameter(pred_coords_cm[0][0], pred_coords_cm[0][1], true_coords_cm[0][0], true_coords_cm[0][1])
+                s_ed_cm = calculate_lvot_diameter(pred_coords_cm[1][0], pred_coords_cm[1][1], true_coords_cm[1][0], true_coords_cm[1][1])
+                tot_ed_cm = i_ed_cm + s_ed_cm
 
                 #print('\nfrom csv true coords pix: ', x2_pix, y2_pix, x1_pix, y1_pix)
                 #print('from calculated true coords pix', true_coord_list_pix[0][0], true_coord_list_pix[0][1], true_coord_list_pix[1][0], true_coord_list_pix[1][1])
@@ -267,6 +276,7 @@ def predict_cm_coords_and_diameter(file_id, pred_coord_list_pix, true_coord_list
 
                 '''
                 #OBS dette er fordi enkelte koordinater var reversert lagret i echopac der x2_pix, y2_pix kommer først. har korrigert for dette men det blir et nytt problem når man bruker scanconvert
+                #i retrospekt burde ikke dette har noe å si da problemet egt var relatert til å avrundingsfeil ved convertering av scanonvert til pix og sammenligning med scanconvert
                 if diff_diam_cm * diff_diam_pix < 0:
                     diff_diam_cm = diff_diam_cm * -1
                 elif diff_diam_pix == 0:
@@ -275,7 +285,7 @@ def predict_cm_coords_and_diameter(file_id, pred_coord_list_pix, true_coord_list
                 #print(f'calculated lvot diam pix: {pred_diam_pix}')
                 #print(f'calculated lvot diam diff pix: {diff_diam_pix}')
 
-                return pred_diam_cm, diff_diam_cm
+                return pred_diam_cm, true_diam_cm, diff_diam_cm, i_ed_cm, s_ed_cm, tot_ed_cm, pred_diam_pix, true_diam_pix, diff_diam_pix, i_ed_pix, s_ed_pix, tot_ed_pix
 
         if found == False:
             print(file_id, 'NOT FOUND')
@@ -296,7 +306,7 @@ if __name__ == "__main__":
     
     ''' define model name, prediction dataset and model parameters '''
     keyfile_csv = r'H:/ML_LVOT/backup_keyfile_and_duplicate/keyfile_GE1424_QC.csv'
-    model_file = 'Feb14_17-27-50_EFFIB1UNET_DSNTDIST_LR5_ADAM_T-AVA1314X5_HMHM_K1_V-AVA1314X5_HMHM_K1_EP30_LR0.001_BS20_SCL1.pth'
+    model_file = 'Feb14_16-04-28_EFFIB1UNET_DSNT_LR5_IMGN_ADAM_T-AVA1314X5_HMHM_K1_V-AVA1314X5_HMHM_K1_EP30_LR0.001_BS20_SCL1.pth'
     data_name = 'AVA1314X5_HMHM_K1'
     n_channels = 1
     n_classes = 2
@@ -338,19 +348,8 @@ if __name__ == "__main__":
     
     if compare_with_ground_truth == True:
         file = open(path.join(predictions_output, f'COORD_DATA.txt'), 'w+')
-        file.write('file_name,measure_type,view_type,img_quality,gt_quality,diff_diam_pix,diff_diam_cm,diam_cm\n')
-        file1 = open(path.join(predictions_output, 'temp.txt'), 'w+')
-        file1.close()
-        file2 = open(path.join(predictions_output, 'temp1.txt'), 'w+')
-        file2.close()
-        file3 = open(path.join(predictions_output, 'temp2.txt'), 'w+')
-        file3.close()
-        file4 = open(path.join(predictions_output, 'temp3.txt'), 'w+')
-        file4.close()
-        file5 = open(path.join(predictions_output, 'temp4.txt'), 'w+')
-        file5.close()
-        file6 = open(path.join(predictions_output, 'temp5.txt'), 'w+')
-        file6.close()
+        file.write('file_name,measure_type,view_type,img_quality,gt_quality,pred_diam_cm,true_diam_cm,diff_diam_cm,i_ed_cm,s_ed_cm,tot_ed_cm,pred_diam_pix,true_diam_pix,diff_diam_pix,i_ed_pix,s_ed_pix,tot_ed_pix\n')
+        file1 = open(path.join(predictions_output, 'MEAN_MEDIAN_SCORES.txt'), 'w+')
 
         ''' all values here are in absolute values '''
         median_lvot_diam_absdiff_pix = np.array([])
@@ -420,7 +419,7 @@ if __name__ == "__main__":
                 median_lvot_diam_absdiff_pix = np.append(median_lvot_diam_absdiff_pix, absdiff_diam_pix)
 
                 ''' converting pixel lvot predicitons to cm '''
-                pred_diam_cm, diff_diam_cm = predict_cm_coords_and_diameter(fn, pred_coordinate_list, true_coordinate_list, keyfile_csv)
+                pred_diam_cm, true_diam_cm, diff_diam_cm, i_ed_cm, s_ed_cm, tot_ed_cm, pred_diam_pix, true_diam_pix, diff_diam_pix, i_ed_pix, s_ed_pix, tot_ed_pix = predict_cm_coords_and_diameter(fn, pred_coordinate_list, true_coordinate_list, keyfile_csv)
 
                 ''' calculate total and median for lvot diameter cm '''
                 absdiff_diam_cm = abs(diff_diam_cm)
@@ -434,7 +433,7 @@ if __name__ == "__main__":
                 absdiff_diam_cm = '{:.4f}'.format(absdiff_diam_cm)
                 pred_diam_cm = '{:.4f}'.format(pred_diam_cm)
                 patient_id, measure_type, view_type, img_quality, gt_quality = fn.rsplit('.', 1)[0].rsplit('_', 4)
-                file.write(f'{fn},{measure_type},{view_type},{img_quality},{gt_quality},{diff_diam_pix},{diff_diam_cm},{pred_diam_cm}\n')
+                file.write(f'{fn},{measure_type},{view_type},{img_quality},{gt_quality},{pred_diam_cm},{true_diam_cm},{diff_diam_cm},{i_ed_cm},{s_ed_cm},{tot_ed_cm},{pred_diam_pix},{true_diam_pix},{diff_diam_pix},{i_ed_pix},{s_ed_pix},{tot_ed_pix}\n')
 
                 ''' plotting and saving coordinate overlay on original image with gt '''
                 pred_plot = predict_plot_on_image(img_pil, pred_coordinate_list, true_coordinate_list, plot_gt=compare_with_ground_truth)
@@ -453,18 +452,36 @@ if __name__ == "__main__":
 
         if compare_with_ground_truth == True:
             file.close()
+            avg_i_ed_pix = total_i_ed_pix / (i + 1)
+            avg_s_ed_pix = total_s_ed_pix / (i + 1)
             avg_sum_ed_pix = total_sum_ed_pix / (i + 1)
             avg_lvot_diam_absdiff_pix = total_lvot_diam_absdiff_pix / (i + 1)
+            median_sum_ed_pix = np.median(median_sum_ed_pix)
+            median_lvot_diam_absdiff_pix = np.median(median_lvot_diam_absdiff_pix)
+
             avg_lvot_diam_absdiff_cm = total_lvot_diam_absdiff_cm / (i + 1)
+            median_lvot_diam_absdiff_cm = np.median(median_lvot_diam_absdiff_cm)
+
+            avg_i_ed_pix = '{:.4f}'.format(avg_i_ed_pix)
+            avg_s_ed_pix = '{:.4f}'.format(avg_s_ed_pix)
             avg_sum_ed_pix = '{:.4f}'.format(avg_sum_ed_pix)
             avg_lvot_diam_absdiff_pix = '{:.4f}'.format(avg_lvot_diam_absdiff_pix)
+            median_sum_ed_pix = '{:.4f}'.format(median_sum_ed_pix)
+            median_lvot_diam_absdiff_pix = '{:.4f}'.format(median_lvot_diam_absdiff_pix)
+
             avg_lvot_diam_absdiff_cm = '{:.4f}'.format(avg_lvot_diam_absdiff_cm)
-            os.rename(path.join(predictions_output, 'temp.txt'), path.join(predictions_output, f'AVG_SUM_ED_PIX_{avg_sum_ed_pix}.txt'))
-            os.rename(path.join(predictions_output, 'temp1.txt'), path.join(predictions_output, f'AVG_LVOTD_PIX_{avg_lvot_diam_absdiff_pix}.txt'))
-            os.rename(path.join(predictions_output, 'temp2.txt'), path.join(predictions_output, f'AVG_LVOTD_CM_{avg_lvot_diam_absdiff_cm}.txt'))
-            os.rename(path.join(predictions_output, 'temp3.txt'), path.join(predictions_output, f'MEDIAN_LVOTD_PIX_{"{:.4f}".format(np.median(median_lvot_diam_absdiff_pix))}.txt'))
-            os.rename(path.join(predictions_output, 'temp4.txt'), path.join(predictions_output, f'MEDIAN_LVOTD_CM_{"{:.4f}".format(np.median(median_lvot_diam_absdiff_cm))}.txt'))
-            os.rename(path.join(predictions_output, 'temp5.txt'), path.join(predictions_output, f'MEDIAN_SUM_ED_PIX_{"{:.4f}".format(np.median(median_sum_ed_pix))}.txt'))
+            median_lvot_diam_absdiff_cm = '{:.4f}'.format(median_lvot_diam_absdiff_cm)
+
+            file1.write(f'AVG i_ED pix: {avg_i_ed_pix}\n')
+            file1.write(f'AVG s_ED pix: {avg_s_ed_pix}\n')
+            file1.write(f'AVG tot_ED pix: {avg_sum_ed_pix}\n')
+            file1.write(f'AVG LVOTd pix: {avg_lvot_diam_absdiff_pix}\n')
+            file1.write(f'MEDIAN tot_ED pix: {median_sum_ed_pix}\n')
+            file1.write(f'MEDIAN LVOTd pix: {median_lvot_diam_absdiff_pix}\n\n')
+
+            file1.write(f'AVG tot_ED cm: {avg_lvot_diam_absdiff_cm}\n')
+            file1.write(f'MEDIAN LVOTd cm: {median_lvot_diam_absdiff_cm}\n')
+            file1.close()
 
 
 
