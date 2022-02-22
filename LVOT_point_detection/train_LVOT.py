@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 from utils.validation_LVOT import validate_mean_and_median_for_distance_and_diameter
 from utils.dataloader_LVOT import BasicDataset
-from utils.point_losses_LVOT import DSNTDoubleLoss, DSNTDistanceDoubleLoss, DistanceDoubleLoss, DSNTDistanceAngleDoubleLoss, DSNTJSDDoubleLoss, DSNTJSDDistanceDoubleLoss, DSNTDistanceDoubleLossNew, DSNTDoubleLossNew, DSNTJSDDoubleLossNew, DSNTJSDDistanceDoubleLossNew
+from utils.point_losses_LVOT import DSNTDoubleLossNewMSECnoED, DSNTDistanceDoubleLossNew, DSNTDoubleLossNew, DSNTDoubleLossNewMSEC, DSNTJSDDoubleLossNew, DSNTJSDDistanceDoubleLossNew
 
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader
@@ -50,11 +50,12 @@ def train_net(net,
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5)  # patience is number of epochs for improvement
 
     #criterion = DSNTDoubleLossNew()
-    criterion = DSNTDistanceDoubleLossNew()
+    criterion = DSNTDoubleLossNewMSEC()
+    #criterion = DSNTJSDDoubleLossNew()
+    #criterion = DSNTDistanceDoubleLossNew()
     #criterion = DSNTJSDDoubleLossNew()
     #criterion = DSNTJSDDistanceDoubleLossNew()
-    #criterion = DistanceDoubleLoss()
-    #criterion = DSNTDistanceAngleDoubleLoss()
+
 
     ''' to check if training is from scratch or transfer learning/checkpoint appending '''
     if transfer_learning_path != '':
@@ -172,7 +173,7 @@ def train_net(net,
                 #tag = tag.replace('.', '/')
                 # writer.add_histogram('weights/' + tag, value.data.cpu().numpy(), global_step)
                 # writer.add_histogram('grads/' + tag, value.grad.data.cpu().numpy(), global_step)
-            val_i_mean, val_s_mean, val_tot_mean, val_tot_median, val_diam_mean, val_diam_median = validate_mean_and_median_for_distance_and_diameter(
+            val_i_mean, val_s_mean, val_tot_mean, val_tot_median, val_diam_mean, val_diam_median, val_x_tot_mean, val_y_tot_mean = validate_mean_and_median_for_distance_and_diameter(
                 net, val_loader, device)
 
             current_lr = scheduler.optimizer.param_groups[0]['lr']
@@ -182,9 +183,13 @@ def train_net(net,
 
             # logging.info('Validation ED inferior mean: {}'.format(val_i_mean))
             writer.add_scalar('ED_inferior_mean/eval', val_i_mean, global_step)
-
             # logging.info('Validation ED superior mean: {}'.format(val_s_mean))
             writer.add_scalar('ED_superior_mean/eval', val_s_mean, global_step)
+
+            # logging.info('Validation tot x diff  mean: {}'.format(val_x_tot_mean))
+            writer.add_scalar('x_tot_mean/eval', val_x_tot_mean, global_step)
+            # logging.info('Validation tot y diff mean: {}'.format(val_y_tot_mean))
+            writer.add_scalar('y_tot_mean/eval', val_y_tot_mean, global_step)
 
             logging.info('Validation ED total pixel mean: {}'.format(val_tot_mean))
             writer.add_scalar('ED_total_mean/eval', val_tot_mean, global_step)
@@ -241,17 +246,17 @@ if __name__ == '__main__':
     summary_writer_dir = 'runs'
     
     ''' define model_name before running '''
-    model_name = 'EFFIB1UNET_DSNTDIST_LR5_ADAM'
+    model_name = 'EFFIB1UNET_DSNTMSEC_LR5_ADAM'
     n_classes = 2
     n_channels = 1
     
     training_parameters = dict(
         data_train_and_validation = [
-            ['AVA1314X5_HMHM_K1', 'AVA1314X5_HMHM_K1'],
-            ['AVA1314X5_HMHM_K2', 'AVA1314X5_HMHM_K2'],
-            ['AVA1314X5_HMHM_K3', 'AVA1314X5_HMHM_K3'],
-            ['AVA1314X5_HMHM_K4', 'AVA1314X5_HMHM_K4'],
-            ['AVA1314X5_HMHM_K5', 'AVA1314X5_HMHM_K5']
+            ['AVA1314X5_HMLHML_K1', 'AVA1314X5_HMHM_K1'],
+            ['AVA1314X5_HMLHML_K2', 'AVA1314X5_HMHM_K2'],
+            ['AVA1314X5_HMLHML_K3', 'AVA1314X5_HMHM_K3'],
+            ['AVA1314X5_HMLHML_K4', 'AVA1314X5_HMHM_K4'],
+            ['AVA1314X5_HMLHML_K5', 'AVA1314X5_HMHM_K5']
             ],
         epochs=[30],
         learning_rate=[0.001],
@@ -282,7 +287,8 @@ if __name__ == '__main__':
         #net = fcn_resnet50(pretrained=True, progress=True, in_channels=n_channels, num_classes=21, aux_loss=None) #num_classes = 21 is necessary to load the pretrained model
         #net.fc = nn.Linear(512, n_classes)  # to change final pretrained output layer for torchvision models
         net = smp.Unet(encoder_name="efficientnet-b1", encoder_weights=None, in_channels=n_channels, classes=n_classes)
-        #print(net)
+        #net = smp.Unet(encoder_name="resnet50", encoder_weights=None, in_channels=n_channels, classes=n_classes)
+
 
         logging.info(f'Network:\n'
                      f'\t{n_channels} input channels\n'

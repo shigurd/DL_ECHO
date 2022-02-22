@@ -206,14 +206,102 @@ class DSNTDoubleLossNew(nn.Module):
                 ''' euclidian distance with DSNT, ED is naturally a loss since distance should be minimized '''
                 ed_loss = torch.sqrt((true_x_coord - pred_x_coord) ** 2 + (true_y_coord - pred_y_coord) ** 2)
 
-                ''' option to add MSE to ED loss '''
-                #pred_coords = torch.stack((pred_x_coord, pred_y_coord))
-                #true_coords = torch.stack((true_x_coord, true_y_coord))
-                #coordinate_mse = mse_loss(pred_coords, true_coords)
-
                 s += ed_loss
 
         return s / (i + 1)
+
+class DSNTDoubleLossNewMSECnoED(nn.Module):
+    def __init__(self, x_weight=1, y_weight=1):
+        self.x_weight = x_weight
+        self.y_weight = y_weight
+        super(DSNTDoubleLossNewMSECnoED, self).__init__()
+
+    def forward(self, input, target):
+        if input.is_cuda:
+            s = torch.FloatTensor(1).cuda().zero_()
+        else:
+            s = torch.FloatTensor(1).zero_()
+
+        ''' make the evenly spaced x and y coordinate masks '''
+        x_size = input.shape[-1]
+        y_size = input.shape[-2]
+
+        y_soft_argmax, x_soft_argmax = coodinate_map_tanh_range(y_size, x_size)
+        y_soft_argmax = y_soft_argmax.cuda()
+        x_soft_argmax = x_soft_argmax.cuda()
+
+        for i, c in enumerate(zip(input, target)):
+            for o, points in enumerate(zip(c[0], c[1])):
+                ''' calculates center of mass of the heatmap with softmax, in other words DSNT '''
+                softmax = nn.Softmax(0)
+                pred_mask_softmax = softmax(points[0].view(-1)).view(points[0].shape)
+
+                pred_x_coord = torch.sum(pred_mask_softmax * x_soft_argmax).cuda()
+                pred_y_coord = torch.sum(pred_mask_softmax * y_soft_argmax).cuda()
+
+                ''' argmax for ground truth, remember to convert euqlician coords to tanh '''
+                coord_argmax = torch.argmax(points[1]).detach()
+                true_x_coord = ((coord_argmax % x_size + 1 - x_size / 2).float() / x_size).cuda()
+                true_y_coord = ((coord_argmax // x_size + 1 - y_size / 2).float() / y_size).cuda()
+
+                ''' option to add MSE to ED loss '''
+                mse_loss = nn.MSELoss()
+                pred_coords = torch.stack((pred_x_coord * self.x_weight, pred_y_coord * self.y_weight))
+                true_coords = torch.stack((true_x_coord * self.x_weight, true_y_coord * self.y_weight))
+                coordinate_mse = mse_loss(pred_coords, true_coords)
+
+                s += coordinate_mse
+
+        return s / (i + 1)
+
+
+class DSNTDoubleLossNewMSEC(nn.Module):
+    def __init__(self, x_weight=1, y_weight=1):
+        self.x_weight = x_weight
+        self.y_weight = y_weight
+        super(DSNTDoubleLossNewMSEC, self).__init__()
+
+    def forward(self, input, target):
+        if input.is_cuda:
+            s = torch.FloatTensor(1).cuda().zero_()
+        else:
+            s = torch.FloatTensor(1).zero_()
+
+        ''' make the evenly spaced x and y coordinate masks '''
+        x_size = input.shape[-1]
+        y_size = input.shape[-2]
+
+        y_soft_argmax, x_soft_argmax = coodinate_map_tanh_range(y_size, x_size)
+        y_soft_argmax = y_soft_argmax.cuda()
+        x_soft_argmax = x_soft_argmax.cuda()
+
+        for i, c in enumerate(zip(input, target)):
+            for o, points in enumerate(zip(c[0], c[1])):
+                ''' calculates center of mass of the heatmap with softmax, in other words DSNT '''
+                softmax = nn.Softmax(0)
+                pred_mask_softmax = softmax(points[0].view(-1)).view(points[0].shape)
+
+                pred_x_coord = torch.sum(pred_mask_softmax * x_soft_argmax).cuda()
+                pred_y_coord = torch.sum(pred_mask_softmax * y_soft_argmax).cuda()
+
+                ''' argmax for ground truth, remember to convert euqlician coords to tanh '''
+                coord_argmax = torch.argmax(points[1]).detach()
+                true_x_coord = ((coord_argmax % x_size + 1 - x_size / 2).float() / x_size).cuda()
+                true_y_coord = ((coord_argmax // x_size + 1 - y_size / 2).float() / y_size).cuda()
+
+                ''' euclidian distance with DSNT, ED is naturally a loss since distance should be minimized '''
+                ed_loss = torch.sqrt((true_x_coord - pred_x_coord) ** 2 + (true_y_coord - pred_y_coord) ** 2)
+
+                ''' option to add MSE to ED loss '''
+                mse_loss = nn.MSELoss()
+                pred_coords = torch.stack((pred_x_coord * self.x_weight, pred_y_coord * self.y_weight))
+                true_coords = torch.stack((true_x_coord * self.x_weight, true_y_coord * self.y_weight))
+                coordinate_mse = mse_loss(pred_coords, true_coords)
+
+                s += ed_loss + coordinate_mse
+
+        return s / (i + 1)
+
 
 class DSNTJSDDoubleLossNew(nn.Module):
     def __init__(self):
@@ -264,9 +352,8 @@ class DSNTJSDDoubleLossNew(nn.Module):
 
 
 class DSNTJSDDistanceDoubleLossNew(nn.Module):
-    def __init__(self, smooth=0.1):
+    def __init__(self):
         super(DSNTJSDDistanceDoubleLossNew, self).__init__()
-        self.smooth = smooth
 
     def forward(self, input, target):
         if input.is_cuda:
@@ -325,7 +412,7 @@ class DSNTJSDDistanceDoubleLossNew(nn.Module):
             true_dist = torch.sqrt(torch.sum((true_dist_list_array[0] - true_dist_list_array[1]) ** 2))
 
             ''' dist error proportion of relative gt dist, countermeasure against exploding gradient '''
-            diff_dist_abs = torch.sqrt((pred_dist - true_dist) ** 2) / true_dist + self.smooth
+            diff_dist_abs = torch.sqrt((pred_dist - true_dist) ** 2) / true_dist
 
             ''' dist error proportion of max distance in 256x256, countermeasure against exploding gradient '''
             #diff_dist_abs = torch.sqrt((pred_dist - true_dist) ** 2) / (torch.sqrt(torch.Tensor([x_size]).cuda() ** 2 + torch.Tensor([y_size]).cuda() ** 2) - true_dist)
@@ -336,9 +423,8 @@ class DSNTJSDDistanceDoubleLossNew(nn.Module):
 
 
 class DSNTDistanceDoubleLossNew(nn.Module):
-    def __init__(self, smooth=0.1):
+    def __init__(self):
         super(DSNTDistanceDoubleLossNew, self).__init__()
-        self.smooth = smooth
 
     def forward(self, input, target):
         if input.is_cuda:
@@ -376,11 +462,12 @@ class DSNTDistanceDoubleLossNew(nn.Module):
                 ed_loss = torch.sqrt((true_x_coord - pred_x_coord) ** 2 + (true_y_coord - pred_y_coord) ** 2)
 
                 ''' option to add MSE to ED loss '''
-                # pred_coords = torch.stack((pred_x_coord, pred_y_coord))
-                # true_coords = torch.stack((true_x_coord, true_y_coord))
-                # coordinate_mse = mse_loss(pred_coords, true_coords)
+                mse_loss = nn.MSELoss()
+                pred_coords = torch.stack((pred_x_coord, pred_y_coord))
+                true_coords = torch.stack((true_x_coord, true_y_coord))
+                coordinate_mse = mse_loss(pred_coords, true_coords)
 
-                s += ed_loss
+                s += ed_loss + coordinate_mse
 
                 ''' add point to distance calculation tensor '''
                 pred_coords_stack = torch.stack((pred_x_coord, pred_y_coord))
@@ -394,7 +481,7 @@ class DSNTDistanceDoubleLossNew(nn.Module):
             true_dist = torch.sqrt(torch.sum((true_dist_list_array[0] - true_dist_list_array[1]) ** 2))
 
             ''' dist error proportion of relative gt dist, countermeasure against exploding gradient '''
-            diff_dist_abs = torch.sqrt((pred_dist - true_dist) ** 2) / true_dist + self.smooth
+            diff_dist_abs = torch.sqrt((pred_dist - true_dist) ** 2) / true_dist
 
             ''' dist error proportion of max distance in 256x256, countermeasure against exploding gradient '''
             #diff_dist_abs = torch.sqrt((pred_dist - true_dist) ** 2) / (torch.sqrt(torch.Tensor([x_size]).cuda() ** 2 + torch.Tensor([y_size]).cuda() ** 2) - true_dist)
@@ -1149,10 +1236,14 @@ class PixelDSNTDistanceDoubleEval(nn.Module):
             s_i = torch.FloatTensor(1).cuda().zero_()
             s_s = torch.FloatTensor(1).cuda().zero_()
             s_diam_diff_abs = torch.FloatTensor(1).cuda().zero_()
+            s_x = torch.FloatTensor(1).cuda().zero_()
+            s_y = torch.FloatTensor(1).cuda().zero_()
         else:
             s_i = torch.FloatTensor(1).zero_()
             s_s = torch.FloatTensor(1).zero_()
-            s_diam_diff_abs = torch.FloatTensor(1).cuda().zero_()
+            s_diam_diff_abs = torch.FloatTensor(1).zero_()
+            s_x = torch.FloatTensor(1).zero_()
+            s_y = torch.FloatTensor(1).zero_()
 
         ''' make the evenly spaced x and y coordinate masks '''
         x_size = input[0].shape[-1]
@@ -1192,7 +1283,12 @@ class PixelDSNTDistanceDoubleEval(nn.Module):
                 pred_x_coord_pixel, pred_y_coord_pixel = coords_norm_to_pixel(pred_coords_stack, x_size, y_size)
                 true_x_coord_pixel, true_y_coord_pixel = coords_norm_to_pixel(true_coords_stack, x_size, y_size)
 
-                ed_loss_pixel = torch.sqrt((true_x_coord_pixel - pred_x_coord_pixel) ** 2 + (true_y_coord_pixel - pred_y_coord_pixel) ** 2)
+                x_diff = true_x_coord_pixel - pred_x_coord_pixel
+                y_diff = true_y_coord_pixel - pred_y_coord_pixel
+                s_x += torch.sqrt(x_diff ** 2)
+                s_y += torch.sqrt(y_diff ** 2)
+
+                ed_loss_pixel = torch.sqrt(x_diff ** 2 + y_diff ** 2)
                 tot_list_np = np.append(tot_list_np, ed_loss_pixel.item())
 
                 ''' option to use normalized values '''
@@ -1223,10 +1319,10 @@ class PixelDSNTDistanceDoubleEval(nn.Module):
             s_diam_diff_abs += diff_distance_abs
 
         ''' outputs absolute inferior loss, superior loss, total loss and diameter difference and median lists '''
-        return s_i / (i + 1), s_s / (i + 1), (s_i + s_s) / (i + 1), s_diam_diff_abs / (i + 1), tot_list_np, diam_list_np
+        return s_i / (i + 1), s_s / (i + 1), (s_i + s_s) / (i + 1), s_diam_diff_abs / (i + 1), tot_list_np, diam_list_np, s_x / (i + 1), s_y / (i + 1)
 
 
-''' not that this only works when images are predicted with batch size of 1 '''
+''' note that this only works when images are predicted with batch size of 1 '''
 class PixelDSNTDistanceDoublePredict(nn.Module):
     def __init__(self):
         super(PixelDSNTDistanceDoublePredict, self).__init__()
@@ -1241,6 +1337,19 @@ class PixelDSNTDistanceDoublePredict(nn.Module):
             s_s = torch.FloatTensor(1).zero_()
             s_diam_diff = torch.FloatTensor(1).zero_()
 
+        ''' calculates center of mass of the heatmap with softmax, in other words DSNT '''
+        x_size = input[0].shape[-1]
+        y_size = input[0].shape[-2]
+
+        x_soft_argmax = torch.zeros((y_size, x_size)).cuda()
+        y_soft_argmax = torch.zeros((y_size, x_size)).cuda()
+
+        for p in range(y_size):
+            y_soft_argmax[p, :] = (p + 1) / y_size
+
+        for j in range(x_size):
+            x_soft_argmax[:, j] = (j + 1) / x_size
+
         pred_coordinate_list = []
         true_coordinate_list = []
 
@@ -1250,18 +1359,6 @@ class PixelDSNTDistanceDoublePredict(nn.Module):
             true_dist_list_array = []
 
             for o, points in enumerate(zip(c[0], c[1])):
-                ''' calculates center of mass of the heatmap with softmax, in other words DSNT '''
-                x_size = points[0].shape[-1]
-                y_size = points[0].shape[-2]
-
-                x_soft_argmax = torch.zeros((y_size, x_size)).cuda()
-                y_soft_argmax = torch.zeros((y_size, x_size)).cuda()
-
-                for p in range(y_size):
-                    y_soft_argmax[p, :] = (p + 1) / y_size
-
-                for j in range(x_size):
-                    x_soft_argmax[:, j] = (j + 1) / x_size
 
                 softmax = nn.Softmax(0)
                 pred_mask_softmax = softmax(points[0].view(-1)).view(points[0].shape)

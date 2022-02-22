@@ -9,13 +9,13 @@ from dicom_extraction_utils_GE.LVOT_coords import iterate_folders
 
 if __name__ == "__main__":
     ''' extract LVOT images and LVOT coordinates and LVOTd data into a keyfile '''
-    keyfile_name = 'keyfile_GE1424.csv'
+    keyfile_name = 'temp_keyfile_GE1424.csv'
 
     '''define input dir and parameters for mask '''
-    input_dcm_dir = r'H:\ML_LVOT\dcm_lvot_backup\GE1424_lvot_dcm'
+    input_dcm_dir = r'H:\ML_LVOT\backup_dcm_lvot\GE1424_lvot_dcm'
     height = 256
     width = 256
-    with_gaussian = True
+    with_gaussian = False
     x_warp = 5
     y_warp = 1
 
@@ -24,7 +24,7 @@ if __name__ == "__main__":
     else:
         dataset_name = f'GE1424_HMLHML'
 
-    keyfile_output = path.join(r'H:\ML_LVOT\txt_keyfile_and_duplicate', keyfile_name)
+    keyfile_output = path.join(r'H:\ML_LVOT\backup_keyfile_and_duplicate', keyfile_name)
     output_imgs_dir = path.join('datasets', 'imgs', dataset_name)
     output_masks_dir = path.join('datasets', 'masks', dataset_name)
     os.mkdir(output_imgs_dir)

@@ -17,6 +17,9 @@ def validate_mean_and_median_for_distance_and_diameter(net, loader, device):
     tot_abs = 0
     tot_diam_abs = 0
 
+    x_tot_abs = 0
+    y_tot_abs = 0
+
     median_list_tot_abs_np = np.array([])
     median_list_diam_abs_np = np.array([])
 
@@ -35,10 +38,13 @@ def validate_mean_and_median_for_distance_and_diameter(net, loader, device):
 
             loss_eval = PixelDSNTDistanceDoubleEval()
             ''' outputs absolute inferior loss, superior loss, total loss and diameter difference '''
-            eval_i_abs, eval_s_abs, eval_tot_abs, eval_diameter_abs, eval_tot_list, eval_diam_list = loss_eval(preds, true_masks_cat)
+            eval_i_abs, eval_s_abs, eval_tot_abs, eval_diameter_abs, eval_tot_list, eval_diam_list, eval_x_tot, eval_y_tot = loss_eval(preds, true_masks_cat)
 
             i_tot_abs += eval_i_abs.item()
             s_tot_abs += eval_s_abs.item()
+
+            x_tot_abs += eval_x_tot.item()
+            y_tot_abs += eval_y_tot.item()
 
             tot_abs += eval_tot_abs.item()
             tot_diam_abs += eval_diameter_abs.item()
@@ -50,9 +56,11 @@ def validate_mean_and_median_for_distance_and_diameter(net, loader, device):
     mean_s_dist_abs = s_tot_abs / n_val
     mean_tot_dist_abs = tot_abs / n_val
     mean_tot_diam_abs = tot_diam_abs / n_val
+    mean_x_dist_abs = x_tot_abs / n_val
+    mean_y_dist_abs = y_tot_abs / n_val
 
     median_tot_dist_abs = np.median(median_list_tot_abs_np)
     median_diam_abs = np.median(median_list_diam_abs_np)
 
     net.train()
-    return mean_i_dist_abs, mean_s_dist_abs, mean_tot_dist_abs, median_tot_dist_abs, mean_tot_diam_abs, median_diam_abs
+    return mean_i_dist_abs, mean_s_dist_abs, mean_tot_dist_abs, median_tot_dist_abs, mean_tot_diam_abs, median_diam_abs, mean_x_dist_abs, mean_y_dist_abs
