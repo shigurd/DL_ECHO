@@ -24,12 +24,10 @@ def extract_configs(txt_file):
     return dict
 
 
-def convert_raw_mhd_to_pil(raw_pth):
+def convert_raw_mhd_to_np(raw_pth):
     itkimage_img = sitk.ReadImage(raw_pth)
     img = sitk.GetArrayFromImage(itkimage_img)
     img = np.squeeze(img)
-    img = Image.fromarray(img.astype(np.uint8))
-    img = img.resize((256, 256))
 
     return img
 
@@ -48,6 +46,7 @@ def get_img_quality(loaded_cfg_dict):
             break
 
     return tag
+
 
 
 def extract_img_from_camus_mhd(input_dir, imgs_output, masks_output):
@@ -73,7 +72,7 @@ def extract_img_from_camus_mhd(input_dir, imgs_output, masks_output):
                 timing_tag = file_tags[2]
 
                 if file_tags[-1] != 'sequence':
-                    img_pil = convert_raw_mhd_to_pil(raw_path)
+                    img_np = convert_raw_mhd_to_np(raw_path)
 
                     ''' get view quality tag '''
                     for d in img_info:
@@ -82,17 +81,39 @@ def extract_img_from_camus_mhd(input_dir, imgs_output, masks_output):
 
                     ''' process gt mask '''
                     if file_tags[-1] == 'gt':
-                        mask_np = np.array(img_pil)
-                        mask_np = mask_np / 3 * 255 #greyscale tricolor mask: 1 endocard, 2 myocard, 3 atrium
-                        mask_pil = Image.fromarray(mask_np.astype(np.uint8))
 
+                        mask_np = img_np / 3 * 255 #greyscale tricolor mask: 1 endocard, 2 myocard, 3 atrium
+                        mask_pil = Image.fromarray(mask_np.astype(np.uint8))
+                        mask_pil = mask_pil.resize((256, 256), Image.NEAREST)
                         mask_name = f'{patient_tag}_{view_tag}_{timing_tag}_{quality_tag}_mask.png'
                         mask_pil.save(os.path.join(masks_output, mask_name))
+                        '''
+                        mask_end_np = np.where(img_np == 3, 255, 0)
+                        mask_end_pil = Image.fromarray(mask_end_np.astype(np.uint8))
+                        mask_end_pil = mask_end_pil.resize((256, 256))
+                        mask_end_name = f'{patient_tag}_{view_tag}_{timing_tag}_{quality_tag}_mask-end.png'
+                        mask_end_pil.save(os.path.join(masks_output, mask_end_name))
+
+                        mask_myo_np = np.where(img_np == 2, 255, 0)
+                        mask_myo_pil = Image.fromarray(mask_myo_np.astype(np.uint8))
+                        mask_myo_pil = mask_myo_pil.resize((256, 256))
+                        mask_myo_name = f'{patient_tag}_{view_tag}_{timing_tag}_{quality_tag}_mask-myo.png'
+                        mask_myo_pil.save(os.path.join(masks_output, mask_myo_name))
+
+                        mask_atr_np = np.where(img_np == 1, 255, 0)
+                        mask_atr_pil = Image.fromarray(mask_atr_np.astype(np.uint8))
+                        mask_atr_pil = mask_atr_pil.resize((256, 256))
+                        mask_atr_name = f'{patient_tag}_{view_tag}_{timing_tag}_{quality_tag}_mask-atr.png'
+                        mask_atr_pil.save(os.path.join(masks_output, mask_atr_name))
+                        '''
                     else:
+                        img_pil = Image.fromarray(img_np.astype(np.uint8))
+                        img_pil = img_pil.resize((256, 256))
                         img_name = f'{patient_tag}_{view_tag}_{timing_tag}_{quality_tag}.png'
                         img_pil.save(os.path.join(imgs_output, img_name))
 
             pbar.update()
+
 
 if __name__ == '__main__':
     input_dir = r'C:\Users\Brekke\Downloads\training'

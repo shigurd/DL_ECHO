@@ -49,8 +49,8 @@ def train_net(net,
     optimizer = optim.Adam(net.parameters(), lr=learning_rate, weight_decay=1e-8)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5)  # patience is number of epochs for improvement
 
-    #criterion = DSNTDoubleLossNew()
-    criterion = DSNTDoubleLossNewMSEC()
+    criterion = DSNTDoubleLossNew()
+    #criterion = DSNTDoubleLossNewMSEC()
     #criterion = DSNTJSDDoubleLossNew()
     #criterion = DSNTDistanceDoubleLossNew()
     #criterion = DSNTJSDDoubleLossNew()
@@ -246,17 +246,17 @@ if __name__ == '__main__':
     summary_writer_dir = 'runs'
     
     ''' define model_name before running '''
-    model_name = 'EFFIB1UNET_DSNTMSEC_LR5_ADAM'
+    model_name = 'EFFIB1UNET_DSNTSigm_LR5_ADAM'
     n_classes = 2
     n_channels = 1
     
     training_parameters = dict(
         data_train_and_validation = [
-            ['AVA1314X5_HMLHML_K1', 'AVA1314X5_HMHM_K1'],
-            ['AVA1314X5_HMLHML_K2', 'AVA1314X5_HMHM_K2'],
-            ['AVA1314X5_HMLHML_K3', 'AVA1314X5_HMHM_K3'],
-            ['AVA1314X5_HMLHML_K4', 'AVA1314X5_HMHM_K4'],
-            ['AVA1314X5_HMLHML_K5', 'AVA1314X5_HMHM_K5']
+            ['AVA1314X5_HMHM_K1', 'AVA1314X5_HMHM_K1'],
+            ['AVA1314X5_HMHM_K2', 'AVA1314X5_HMHM_K2'],
+            ['AVA1314X5_HMHM_K3', 'AVA1314X5_HMHM_K3'],
+            ['AVA1314X5_HMHM_K4', 'AVA1314X5_HMHM_K4'],
+            ['AVA1314X5_HMHM_K5', 'AVA1314X5_HMHM_K5']
             ],
         epochs=[30],
         learning_rate=[0.001],

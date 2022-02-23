@@ -305,14 +305,15 @@ def get_output_filenames(in_file):
 if __name__ == "__main__":
     
     ''' define model name, prediction dataset and model parameters '''
-    keyfile_csv = r'H:/ML_LVOT/backup_keyfile_and_duplicate/keyfile_GE1424_QC.csv'
-    model_file = 'Feb14_16-04-28_EFFIB1UNET_DSNT_LR5_IMGN_ADAM_T-AVA1314X5_HMHM_K1_V-AVA1314X5_HMHM_K1_EP30_LR0.001_BS20_SCL1.pth'
+    #keyfile_csv = r'H:/ML_LVOT/backup_keyfile_and_duplicate/keyfile_GE1424_QC.csv'
+    keyfile_csv = ''
+    model_file = 'Feb23_11-23-17_EFFIB1UNET_DSNTHalf_LR5_ADAM_T-AVA1314X5_HMHM_K1_V-AVA1314X5_HMHM_K1_EP30_LR0.001_BS20_SCL1.pth'
     data_name = 'AVA1314X5_HMHM_K1'
     n_channels = 1
     n_classes = 2
     scaling = 1
     compare_with_ground_truth = True
-    output_with_heatmap = False
+    output_with_heatmap = True
 
     model_path = path.join('checkpoints', model_file)
     dir_img = path.join('data', 'validate', 'imgs', data_name)
@@ -403,8 +404,7 @@ if __name__ == "__main__":
                 ed_i_pix = loss_list_tensor[0].item()
                 ed_s_pix = loss_list_tensor[1].item()
                 ed_tot_pix = loss_list_tensor[2].item()
-                diff_diam_pix = loss_list_tensor[3].item()
-                absdiff_diam_pix = abs(diff_diam_pix)
+                absdiff_diam_pix = loss_list_tensor[3].item()
 
                 pred_coordinate_list = loss_list_tensor[4]
                 true_coordinate_list = loss_list_tensor[5]
@@ -419,27 +419,29 @@ if __name__ == "__main__":
                 median_lvot_diam_absdiff_pix = np.append(median_lvot_diam_absdiff_pix, absdiff_diam_pix)
 
                 ''' converting pixel lvot predicitons to cm '''
-                pred_diam_cm, true_diam_cm, diff_diam_cm, i_ed_cm, s_ed_cm, tot_ed_cm, pred_diam_pix, true_diam_pix, diff_diam_pix, i_ed_pix, s_ed_pix, tot_ed_pix = predict_cm_coords_and_diameter(fn, pred_coordinate_list, true_coordinate_list, keyfile_csv)
+                if keyfile_csv != '':
+                    pred_diam_cm, true_diam_cm, diff_diam_cm, i_ed_cm, s_ed_cm, tot_ed_cm, pred_diam_pix, true_diam_pix, diff_diam_pix, i_ed_pix, s_ed_pix, tot_ed_pix = predict_cm_coords_and_diameter(fn, pred_coordinate_list, true_coordinate_list, keyfile_csv)
 
-                ''' calculate total and median for lvot diameter cm '''
-                absdiff_diam_cm = abs(diff_diam_cm)
-                total_lvot_diam_absdiff_cm += absdiff_diam_cm
-                median_lvot_diam_absdiff_cm = np.append(median_lvot_diam_absdiff_cm, absdiff_diam_cm)
+                    ''' calculate total and median for lvot diameter cm '''
+                    absdiff_diam_cm = abs(diff_diam_cm)
+                    total_lvot_diam_absdiff_cm += absdiff_diam_cm
+                    median_lvot_diam_absdiff_cm = np.append(median_lvot_diam_absdiff_cm, absdiff_diam_cm)
 
-                ''' log the data '''
-                diff_diam_pix = '{:.4f}'.format(diff_diam_pix)
-                absdiff_diam_pix = '{:.4f}'.format(absdiff_diam_pix)
-                diff_diam_cm = '{:.4f}'.format(diff_diam_cm)
-                absdiff_diam_cm = '{:.4f}'.format(absdiff_diam_cm)
-                pred_diam_cm = '{:.4f}'.format(pred_diam_cm)
-                patient_id, measure_type, view_type, img_quality, gt_quality = fn.rsplit('.', 1)[0].rsplit('_', 4)
-                file.write(f'{fn},{measure_type},{view_type},{img_quality},{gt_quality},{pred_diam_cm},{true_diam_cm},{diff_diam_cm},{i_ed_cm},{s_ed_cm},{tot_ed_cm},{pred_diam_pix},{true_diam_pix},{diff_diam_pix},{i_ed_pix},{s_ed_pix},{tot_ed_pix}\n')
+                    ''' log the data '''
+                    diff_diam_pix = '{:.4f}'.format(diff_diam_pix)
+                    diff_diam_cm = '{:.4f}'.format(diff_diam_cm)
+                    absdiff_diam_cm = '{:.4f}'.format(absdiff_diam_cm)
+                    pred_diam_cm = '{:.4f}'.format(pred_diam_cm)
+                    patient_id, measure_type, view_type, img_quality, gt_quality = fn.rsplit('.', 1)[0].rsplit('_', 4)
+                    file.write(f'{fn},{measure_type},{view_type},{img_quality},{gt_quality},{pred_diam_cm},{true_diam_cm},{diff_diam_cm},{i_ed_cm},{s_ed_cm},{tot_ed_cm},{pred_diam_pix},{true_diam_pix},{diff_diam_pix},{i_ed_pix},{s_ed_pix},{tot_ed_pix}\n')
 
                 ''' plotting and saving coordinate overlay on original image with gt '''
                 pred_plot = predict_plot_on_image(img_pil, pred_coordinate_list, true_coordinate_list, plot_gt=compare_with_ground_truth)
                 if output_with_heatmap == True:
                     pred_plot = concat_img(pred_plot, heatmap_i_pil)
                     pred_plot = concat_img(pred_plot, heatmap_s_pil)
+
+                absdiff_diam_pix = '{:.4f}'.format(absdiff_diam_pix)
                 pred_plot.save(path.join(predictions_output, f'{str(absdiff_diam_pix)}_{out_fn}'))
 
             else:
@@ -459,18 +461,12 @@ if __name__ == "__main__":
             median_sum_ed_pix = np.median(median_sum_ed_pix)
             median_lvot_diam_absdiff_pix = np.median(median_lvot_diam_absdiff_pix)
 
-            avg_lvot_diam_absdiff_cm = total_lvot_diam_absdiff_cm / (i + 1)
-            median_lvot_diam_absdiff_cm = np.median(median_lvot_diam_absdiff_cm)
-
             avg_i_ed_pix = '{:.4f}'.format(avg_i_ed_pix)
             avg_s_ed_pix = '{:.4f}'.format(avg_s_ed_pix)
             avg_sum_ed_pix = '{:.4f}'.format(avg_sum_ed_pix)
             avg_lvot_diam_absdiff_pix = '{:.4f}'.format(avg_lvot_diam_absdiff_pix)
             median_sum_ed_pix = '{:.4f}'.format(median_sum_ed_pix)
             median_lvot_diam_absdiff_pix = '{:.4f}'.format(median_lvot_diam_absdiff_pix)
-
-            avg_lvot_diam_absdiff_cm = '{:.4f}'.format(avg_lvot_diam_absdiff_cm)
-            median_lvot_diam_absdiff_cm = '{:.4f}'.format(median_lvot_diam_absdiff_cm)
 
             file1.write(f'AVG i_ED pix: {avg_i_ed_pix}\n')
             file1.write(f'AVG s_ED pix: {avg_s_ed_pix}\n')
@@ -479,8 +475,14 @@ if __name__ == "__main__":
             file1.write(f'MEDIAN tot_ED pix: {median_sum_ed_pix}\n')
             file1.write(f'MEDIAN LVOTd pix: {median_lvot_diam_absdiff_pix}\n\n')
 
-            file1.write(f'AVG tot_ED cm: {avg_lvot_diam_absdiff_cm}\n')
-            file1.write(f'MEDIAN LVOTd cm: {median_lvot_diam_absdiff_cm}\n')
+            if keyfile_csv != '':
+                avg_lvot_diam_absdiff_cm = total_lvot_diam_absdiff_cm / (i + 1)
+                median_lvot_diam_absdiff_cm = np.median(median_lvot_diam_absdiff_cm)
+                avg_lvot_diam_absdiff_cm = '{:.4f}'.format(avg_lvot_diam_absdiff_cm)
+                median_lvot_diam_absdiff_cm = '{:.4f}'.format(median_lvot_diam_absdiff_cm)
+                file1.write(f'AVG tot_ED cm: {avg_lvot_diam_absdiff_cm}\n')
+                file1.write(f'MEDIAN LVOTd cm: {median_lvot_diam_absdiff_cm}\n')
+
             file1.close()
 
 
