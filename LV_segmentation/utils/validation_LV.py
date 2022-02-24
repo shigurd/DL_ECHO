@@ -55,6 +55,7 @@ def validate_mean_and_median_hd(net, loader, device):
     net.eval()
     mask_type = torch.float32  # if net.output_channels == 1 else torch.long
     n_val = len(loader)  # the number of batch
+    n_total_val = 0  # total single images
 
     tot_dice = 0
     tot_iou = 0
@@ -77,7 +78,8 @@ def validate_mean_and_median_hd(net, loader, device):
                 # preds = preds['out'] # use if network is from torchvision
 
             eval = DiceAndIoUHardWithHD()
-            dice, iou, hd, dice_list, iou_list, hd_list = eval(preds, true_masks)
+            dice, iou, hd, dice_list, iou_list, hd_list, n_in_batch = eval(preds, true_masks)
+            n_total_val += n_in_batch
 
             median_list_dice_np = np.concatenate((median_list_dice_np, dice_list), 0)
             median_list_iou_np = np.concatenate((median_list_iou_np, iou_list), 0)
@@ -90,9 +92,9 @@ def validate_mean_and_median_hd(net, loader, device):
     median_dice = np.median(median_list_dice_np)
     median_iou = np.median(median_list_iou_np)
     median_hd = np.median(median_list_hd_np)
-    mean_dice = tot_dice / n_val
-    mean_iou = tot_iou / n_val
-    mean_hd = tot_hd / n_val
+    mean_dice = tot_dice / n_total_val
+    mean_iou = tot_iou / n_total_val
+    mean_hd = tot_hd / n_total_val
 
     net.train()
 

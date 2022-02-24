@@ -216,7 +216,7 @@ class DiceAndIoUHardWithHD(nn.Module):
             iou_list_np = np.append(iou_list_np, iou.item())
             hd_list_np = np.append(hd_list_np, hd)
 
-        return s_dice / (i + 1), s_iou / (i + 1), s_hd / (i + 1), dice_list_np, iou_list_np, hd_list_np
+        return s_dice, s_iou, s_hd, dice_list_np, iou_list_np, hd_list_np, (i + 1)
 
 
 class DiceSoftBCELoss(nn.Module):

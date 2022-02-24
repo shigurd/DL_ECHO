@@ -569,6 +569,7 @@ class PixelDSNTDistanceDoubleEval(nn.Module):
 
             pred_dist_list_array = []
             true_dist_list_array = []
+            tot_ed_for_median = 0
 
             for o, points in enumerate(zip(c[0], c[1])):
                 ''' calculates center of mass of the heatmap with softmax, in other words DSNT '''
@@ -604,7 +605,6 @@ class PixelDSNTDistanceDoubleEval(nn.Module):
                 s_y += torch.sqrt(y_diff ** 2)
 
                 ed_loss_pixel = torch.sqrt(x_diff ** 2 + y_diff ** 2)
-                tot_list_np = np.append(tot_list_np, ed_loss_pixel.item())
 
                 ''' option to use normalized values '''
                 # ed_loss = torch.sqrt((true_x_coord - pred_x_coord) ** 2 + (true_y_coord - pred_y_coord) ** 2)
@@ -616,10 +616,13 @@ class PixelDSNTDistanceDoubleEval(nn.Module):
                 pred_dist_list_array.append(pred_coords_stack_pixel)
                 true_dist_list_array.append(true_coords_stack_pixel)
 
+                tot_ed_for_median += ed_loss_pixel.item()
                 if o == 0:
                     s_i += ed_loss_pixel
                 else:
                     s_s += ed_loss_pixel
+
+            tot_list_np = np.append(tot_list_np, tot_ed_for_median)
 
             ''' outputs absolute pixelwise distance '''
             vector_pred = pred_dist_list_array[0] - pred_dist_list_array[1]
@@ -634,7 +637,7 @@ class PixelDSNTDistanceDoubleEval(nn.Module):
             s_diam_diff_abs += diff_distance_abs
 
         ''' outputs absolute inferior loss, superior loss, total loss and diameter difference and median lists '''
-        return s_i / (i + 1), s_s / (i + 1), (s_i + s_s) / (i + 1), s_diam_diff_abs / (i + 1), tot_list_np, diam_list_np, s_x / (i + 1), s_y / (i + 1)
+        return s_i, s_s, (s_i + s_s), s_diam_diff_abs, tot_list_np, diam_list_np, s_x , s_y, (i + 1)
 
 
 ''' note that this is only intended to work with BS 1 '''
@@ -736,6 +739,8 @@ class PixelDSNTDistanceDoublePredict(nn.Module):
 
         ''' outputs absolute inferior loss, superior loss, total loss and diameter difference, median lists and coords '''
         return s_i / (i + 1), s_s / (i + 1), (s_i + s_s) / (i + 1), s_diam_diff_abs / (i + 1), pred_coordinate_list, true_coordinate_list
+
+
 
 
 

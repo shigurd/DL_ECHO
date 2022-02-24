@@ -82,7 +82,7 @@ def train_net(net,
     if data_train_and_validation[1] != '':
         val = BasicDataset(validate_imgs_dir, validate_masks_dir, img_scale=img_scale, mid_systole_only=mid_systole_only, coord_conv=coord_conv)
         n_val = len(val)
-        val_loader = DataLoader(val, batch_size=1, shuffle=True, num_workers=4, pin_memory=True, drop_last=True)
+        val_loader = DataLoader(val, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True, drop_last=False)
 
     ''' make summary writer file with timestamp '''
     time_stamp = datetime.now().strftime('%b%d_%H-%M-%S')

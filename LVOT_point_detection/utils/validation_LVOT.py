@@ -10,6 +10,7 @@ def validate_mean_and_median_for_distance_and_diameter(net, loader, device):
     net.eval()
     mask_type = torch.float32 #if net.output_channels == 1 else torch.long
     n_val = len(loader)  # the number of batch
+    n_total_val = 0 # total single images
 
     i_tot_abs = 0
     s_tot_abs = 0
@@ -38,7 +39,8 @@ def validate_mean_and_median_for_distance_and_diameter(net, loader, device):
 
             loss_eval = PixelDSNTDistanceDoubleEval()
             ''' outputs absolute inferior loss, superior loss, total loss and diameter difference '''
-            eval_i_abs, eval_s_abs, eval_tot_abs, eval_diameter_abs, eval_tot_list, eval_diam_list, eval_x_tot, eval_y_tot = loss_eval(preds, true_masks_cat)
+            eval_i_abs, eval_s_abs, eval_tot_abs, eval_diameter_abs, eval_tot_list, eval_diam_list, eval_x_tot, eval_y_tot, n_in_batch = loss_eval(preds, true_masks_cat)
+            n_total_val += n_in_batch
 
             i_tot_abs += eval_i_abs.item()
             s_tot_abs += eval_s_abs.item()
@@ -52,12 +54,12 @@ def validate_mean_and_median_for_distance_and_diameter(net, loader, device):
             median_list_diam_abs_np = np.concatenate((median_list_diam_abs_np, eval_diam_list), 0)
             pbar.update()
 
-    mean_i_dist_abs = i_tot_abs / n_val
-    mean_s_dist_abs = s_tot_abs / n_val
-    mean_tot_dist_abs = tot_abs / n_val
-    mean_tot_diam_abs = tot_diam_abs / n_val
-    mean_x_dist_abs = x_tot_abs / n_val
-    mean_y_dist_abs = y_tot_abs / n_val
+    mean_i_dist_abs = i_tot_abs / n_total_val
+    mean_s_dist_abs = s_tot_abs / n_total_val
+    mean_tot_dist_abs = tot_abs / n_total_val
+    mean_tot_diam_abs = tot_diam_abs / n_total_val
+    mean_x_dist_abs = x_tot_abs / n_total_val
+    mean_y_dist_abs = y_tot_abs / n_total_val
 
     median_tot_dist_abs = np.median(median_list_tot_abs_np)
     median_diam_abs = np.median(median_list_diam_abs_np)

@@ -89,7 +89,7 @@ def train_net(net,
     if data_train_and_validation[1] != '':
         val = BasicDataset(validate_imgs_dir, validate_masks_dir, img_scale=img_scale, mid_systole_only=mid_systole_only, coord_conv=coord_conv)
         n_val = len(val)
-        val_loader = DataLoader(val, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True, drop_last=True)
+        val_loader = DataLoader(val, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True, drop_last=False)
 
     ''' make summary writer file with timestamp '''
     time_stamp = datetime.now().strftime('%b%d_%H-%M-%S')
@@ -255,24 +255,21 @@ if __name__ == '__main__':
     summary_writer_dir = 'runs'
     
     ''' define model_name before running '''
-    model_name = 'EFFIB1-LR5-DICBCE_AL_TF-CAMUSH1800HML_ADAM'
+    model_name = 'EFFIB1-LR5-DICBCE_AL_ADAM'
     n_classes = 1
-    n_channels = 1
+    n_channels = 3
     
     training_parameters = dict(
         data_train_and_validation = [
-            ['GE1956_HMLHML100', ''],
-            ['GE1956_HMLHML200', ''],
-            ['GE1956_HMLHML300', ''],
-            ['GE1956_HMLHML400', '']
+            ['CAMUS1800_HML', ''],
             ],
         epochs=[30],
         learning_rate=[0.001],
         batch_size=[10],
         batch_accumulation=[2],
         img_scale=[1],
-        transfer_learning_path=['checkpoints/pretrening/Feb05_21-52-38_EFFIB1-LR5-DICBCE_AL_ADAM_T-CAMUS1800_HML_V-NONE_EP30_LR0.001_BS20_SCL1.pth'],
-        mid_systole_only=[True],
+        transfer_learning_path=[''],
+        mid_systole_only=[False],
         coord_conv=[False]
     )
     
@@ -295,7 +292,7 @@ if __name__ == '__main__':
 
         #net = fcn_resnet50(pretrained=False, progress=True, in_channels=n_channels, num_classes=n_classes, aux_loss=None)
         #net = smp.Unet(encoder_name="resnet50", encoder_weights=None, in_channels=n_channels, classes=n_classes)
-        net = smp.Unet(encoder_name="efficientnet-b1", encoder_weights=None, in_channels=n_channels, classes=n_classes)
+        net = smp.Unet(encoder_name="efficientnet-b1", encoder_weights='imagenet', in_channels=n_channels, classes=n_classes)
         #net = UNet(n_channels, n_classes, bilinear=False)
 
         logging.info(f'Network:\n'

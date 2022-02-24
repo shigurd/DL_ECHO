@@ -307,7 +307,7 @@ if __name__ == "__main__":
     ''' define model name, prediction dataset and model parameters '''
     #keyfile_csv = r'H:/ML_LVOT/backup_keyfile_and_duplicate/keyfile_GE1424_QC.csv'
     keyfile_csv = ''
-    model_file = 'Feb23_11-23-17_EFFIB1UNET_DSNTHalf_LR5_ADAM_T-AVA1314X5_HMHM_K1_V-AVA1314X5_HMHM_K1_EP30_LR0.001_BS20_SCL1.pth'
+    model_file = 'Feb24_12-46-19_EFFIB1UNET_DSNTSigm_LR5_ADAM_T-AVA1314X5_HMHM_K1_V-AVA1314X5_HMHM_K1_EP30_LR0.001_BS20_SCL1.pth'
     data_name = 'AVA1314X5_HMHM_K1'
     n_channels = 1
     n_classes = 2
@@ -355,7 +355,7 @@ if __name__ == "__main__":
         ''' all values here are in absolute values '''
         median_lvot_diam_absdiff_pix = np.array([])
         median_lvot_diam_absdiff_cm = np.array([])
-        median_sum_ed_pix = np.array([])
+        median_tot_ed_pix = np.array([])
         total_i_ed_pix = 0
         total_s_ed_pix = 0
         total_sum_ed_pix = 0
@@ -415,7 +415,7 @@ if __name__ == "__main__":
                 total_sum_ed_pix += ed_tot_pix
                 total_lvot_diam_absdiff_pix += absdiff_diam_pix
 
-                median_sum_ed_pix = np.append(median_sum_ed_pix, ed_tot_pix)
+                median_tot_ed_pix = np.append(median_tot_ed_pix, ed_tot_pix)
                 median_lvot_diam_absdiff_pix = np.append(median_lvot_diam_absdiff_pix, absdiff_diam_pix)
 
                 ''' converting pixel lvot predicitons to cm '''
@@ -458,21 +458,21 @@ if __name__ == "__main__":
             avg_s_ed_pix = total_s_ed_pix / (i + 1)
             avg_sum_ed_pix = total_sum_ed_pix / (i + 1)
             avg_lvot_diam_absdiff_pix = total_lvot_diam_absdiff_pix / (i + 1)
-            median_sum_ed_pix = np.median(median_sum_ed_pix)
+            median_tot_ed_pix = np.median(median_tot_ed_pix)
             median_lvot_diam_absdiff_pix = np.median(median_lvot_diam_absdiff_pix)
 
             avg_i_ed_pix = '{:.4f}'.format(avg_i_ed_pix)
             avg_s_ed_pix = '{:.4f}'.format(avg_s_ed_pix)
             avg_sum_ed_pix = '{:.4f}'.format(avg_sum_ed_pix)
             avg_lvot_diam_absdiff_pix = '{:.4f}'.format(avg_lvot_diam_absdiff_pix)
-            median_sum_ed_pix = '{:.4f}'.format(median_sum_ed_pix)
+            median_tot_ed_pix = '{:.4f}'.format(median_tot_ed_pix)
             median_lvot_diam_absdiff_pix = '{:.4f}'.format(median_lvot_diam_absdiff_pix)
 
             file1.write(f'AVG i_ED pix: {avg_i_ed_pix}\n')
             file1.write(f'AVG s_ED pix: {avg_s_ed_pix}\n')
             file1.write(f'AVG tot_ED pix: {avg_sum_ed_pix}\n')
             file1.write(f'AVG LVOTd pix: {avg_lvot_diam_absdiff_pix}\n')
-            file1.write(f'MEDIAN tot_ED pix: {median_sum_ed_pix}\n')
+            file1.write(f'MEDIAN tot_ED pix: {median_tot_ed_pix}\n')
             file1.write(f'MEDIAN LVOTd pix: {median_lvot_diam_absdiff_pix}\n\n')
 
             if keyfile_csv != '':

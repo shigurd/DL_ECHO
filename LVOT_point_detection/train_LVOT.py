@@ -42,6 +42,7 @@ def train_net(net,
               batch_size=10,
               batch_accumulation=1,
               img_scale=1,
+              with_gaussian=False,
               transfer_learning_path=''):
 
     ''' define optimizer and loss '''
@@ -75,14 +76,14 @@ def train_net(net,
         train_type = 'EP'
     
     ''' dataloader for training and evaluation '''
-    train = BasicDataset(train_imgs_dir, train_masks_dir, img_scale=img_scale)
+    train = BasicDataset(train_imgs_dir, train_masks_dir, img_scale=img_scale, with_gaussian=with_gaussian)
     n_train = len(train)
     train_loader = DataLoader(train, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True)
     
     if data_train_and_validation[1] != '':
-        val = BasicDataset(validate_imgs_dir, validate_masks_dir, img_scale)
+        val = BasicDataset(validate_imgs_dir, validate_masks_dir, img_scale, with_gaussian=with_gaussian)
         n_val = len(val)
-        val_loader = DataLoader(val, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True, drop_last=True)
+        val_loader = DataLoader(val, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True, drop_last=False)
 
     ''' make summary writer file with timestamp '''
     time_stamp = datetime.now().strftime('%b%d_%H-%M-%S')
@@ -253,22 +254,20 @@ if __name__ == '__main__':
     training_parameters = dict(
         data_train_and_validation = [
             ['AVA1314X5_HMHM_K1', 'AVA1314X5_HMHM_K1'],
-            ['AVA1314X5_HMHM_K2', 'AVA1314X5_HMHM_K2'],
-            ['AVA1314X5_HMHM_K3', 'AVA1314X5_HMHM_K3'],
-            ['AVA1314X5_HMHM_K4', 'AVA1314X5_HMHM_K4'],
-            ['AVA1314X5_HMHM_K5', 'AVA1314X5_HMHM_K5']
+
             ],
         epochs=[30],
         learning_rate=[0.001],
         batch_size=[10],
         batch_accumulation=[2],
         img_scale=[1],
+        with_gaussian=[True],
         transfer_learning_path=['']
     )
     
     ''' used to train multiple models in succession. add variables to arrays to make more combinations '''
     param_values = [v for v in training_parameters.values()]
-    for data_train_and_validation, epochs, learning_rate, batch_size, batch_accumulation, img_scale, transfer_learning_path in product(*param_values):
+    for data_train_and_validation, epochs, learning_rate, batch_size, batch_accumulation, img_scale, with_gaussian, transfer_learning_path in product(*param_values):
 
         current_train_imgs_dir = path.join(data_train_dir, 'imgs', data_train_and_validation[0])
         current_train_masks_dir = path.join(data_train_dir, 'masks', data_train_and_validation[0])
@@ -315,6 +314,7 @@ if __name__ == '__main__':
                       batch_size=batch_size,
                       batch_accumulation=batch_accumulation,
                       img_scale=img_scale,
+                      with_gaussian=with_gaussian,
                       transfer_learning_path=transfer_learning_path)
         except KeyboardInterrupt:
             torch.save(net.state_dict(), 'INTERRUPTED.pth')
