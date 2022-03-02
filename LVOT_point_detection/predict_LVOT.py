@@ -307,8 +307,8 @@ if __name__ == "__main__":
     ''' define model name, prediction dataset and model parameters '''
     #keyfile_csv = r'H:/ML_LVOT/backup_keyfile_and_duplicate/keyfile_GE1424_QC.csv'
     keyfile_csv = ''
-    model_file = 'Feb24_12-46-19_EFFIB1UNET_DSNTSigm_LR5_ADAM_T-AVA1314X5_HMHM_K1_V-AVA1314X5_HMHM_K1_EP30_LR0.001_BS20_SCL1.pth'
-    data_name = 'AVA1314X5_HMHM_K1'
+    model_file = 'Feb28_20-04-10_EFFIB1UNET_DSNTFULL_LR5_ADAM_T-GE1408_HMHM_K4_V-GE1408_HMHMAVA_K4_EP30_LR0.001_BS20_SCL1.pth'
+    data_name = 'GE1408_HMHMAVA_K1'
     n_channels = 1
     n_classes = 2
     scaling = 1
@@ -334,6 +334,7 @@ if __name__ == "__main__":
     
     ''' define network settings '''
     #net = fcn_resnet50(pretrained=False, progress=True, in_channels=n_channels, num_classes=n_classes, aux_loss=None)
+    #net = smp.Unet(encoder_name="resnet50", encoder_weights=None, in_channels=n_channels, classes=n_classes)
     net = smp.Unet(encoder_name="efficientnet-b1", encoder_weights=None, in_channels=n_channels, classes=n_classes)
 
     logging.info("Loading model {}".format(model_path))

@@ -7,19 +7,25 @@ import numpy as np
 import torch
 from torch import optim
 from tqdm import tqdm
+import random
 
-from utils.validation_LVOT import validate_mean_and_median_for_distance_and_diameter
-from utils.dataloader_LVOT import BasicDataset
-from utils.point_losses_LVOT import DSNTDoubleLossNewMSECnoED, DSNTDistanceDoubleLossNew, DSNTDoubleLossNew, DSNTDoubleLossNewMSEC, DSNTJSDDoubleLossNew, DSNTJSDDistanceDoubleLossNew
+from data_partition_utils.create_augmentation_imgs_and_masks import MyLiveAugmentations
+from PIL import Image
+
+from LV_segmentation.utils.validation_LV import validate_mean_and_median, validate_mean_and_median_hd
+from LV_segmentation.utils.dataloader_LV import BasicDataset
+from LV_segmentation.utils.segmentation_losses_LV import DiceSoftBCELoss, IoUSoftBCELoss, DiceSoftLoss, IoUSoftLoss
 
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader
-import torch.nn as nn
 
 sys.path.insert(0, '..')
 from networks.resnet50_torchvision import fcn_resnet50, fcn_resnet101, deeplabv3_resnet50, deeplabv3_resnet101
 from networks.unet import UNet
+from networks.unet_plusplus import NestedUNet
 from common_utils.heatmap_plot import show_preds_heatmap
+from common_utils.live_augmentation_skimage import augment_imgs_masks_batch
+
 import segmentation_models_pytorch as smp
 
 from itertools import product 
@@ -42,20 +48,20 @@ def train_net(net,
               batch_size=10,
               batch_accumulation=1,
               img_scale=1,
-              with_gaussian=False,
-              transfer_learning_path=''):
+              transfer_learning_path='',
+              mid_systole_only=False,
+              coord_conv=False):
 
     ''' define optimizer and loss '''
-    #optimizer = optim.RMSprop(net.parameters(), lr=learning_rate, weight_decay=1e-8)
+    #optimizer = optim.RMSprop(net.parameters(), lr=learning_rate, weight_decay=1e-8, momentum=0.9)
     optimizer = optim.Adam(net.parameters(), lr=learning_rate, weight_decay=1e-8)
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5)  # patience is number of epochs for improvement
+    criterion = DiceSoftBCELoss()
+    #criterion = IoUSoftBCELoss()
+    #criterion = DiceSoftLoss()
+    #criterion = IoUSoftLoss()
 
-    criterion = DSNTDoubleLossNew()
-    #criterion = DSNTDoubleLossNewMSEC()
-    #criterion = DSNTJSDDoubleLossNew()
-    #criterion = DSNTDistanceDoubleLossNew()
-    #criterion = DSNTJSDDoubleLossNew()
-    #criterion = DSNTJSDDistanceDoubleLossNew()
+    if data_train_and_validation[1] != '':
+        scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.1, patience=5)  # patience is number of epochs for improvement
 
 
     ''' to check if training is from scratch or transfer learning/checkpoint appending '''
@@ -76,12 +82,12 @@ def train_net(net,
         train_type = 'EP'
     
     ''' dataloader for training and evaluation '''
-    train = BasicDataset(train_imgs_dir, train_masks_dir, img_scale=img_scale, with_gaussian=with_gaussian)
+    train = BasicDataset(train_imgs_dir, train_masks_dir, img_scale=img_scale, mid_systole_only=mid_systole_only, coord_conv=coord_conv)
     n_train = len(train)
     train_loader = DataLoader(train, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True)
     
     if data_train_and_validation[1] != '':
-        val = BasicDataset(validate_imgs_dir, validate_masks_dir, img_scale, with_gaussian=with_gaussian)
+        val = BasicDataset(validate_imgs_dir, validate_masks_dir, img_scale=img_scale, mid_systole_only=mid_systole_only, coord_conv=coord_conv)
         n_val = len(val)
         val_loader = DataLoader(val, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True, drop_last=False)
 
@@ -107,6 +113,8 @@ def train_net(net,
             Device:             {device.type}
             Images scaling:     {img_scale}
             Transfer learning:  {transfer_learning_path}
+            Mid systole:        {mid_systole_only}
+            Coord conv:         {coord_conv}
         ''')
     else:
         logging.info(f'''Starting training:
@@ -119,6 +127,8 @@ def train_net(net,
             Device:             {device.type}
             Images scaling:     {img_scale}
             Transfer learning:  {transfer_learning_path}
+            Mid systole only:   {mid_systole_only}
+            Coord conv:         {coord_conv}
         ''')
     
     global_step = 0
@@ -133,25 +143,26 @@ def train_net(net,
             
             for i, batch in enumerate(train_loader):
                 imgs = batch['image']
-                true_masks = [batch['mask_i'], batch['mask_s']]
+                true_masks = batch['mask']
                 assert imgs.shape[1] == n_channels, \
                     f'Network has been defined with {n_channels} input channels, ' \
                     f'but loaded images have {imgs.shape[1]} channels. Please check that ' \
                     'the images are loaded correctly.'
 
-                imgs = imgs.to(device=device, dtype=torch.float32)
-                mask_type = torch.float32 #if net.output_channels == 1 else torch.long
-                
-                true_masks_cat = torch.cat((true_masks[0], true_masks[1]), 1).to(device=device, dtype=mask_type)
+                ''' apply augmentations to images and masks '''
+                imgs_augmented_batch, masks_augmented_batch = augment_imgs_masks_batch(imgs, true_masks)
+
+                imgs = imgs_augmented_batch.to(device=device, dtype=torch.float32)
+                true_masks = masks_augmented_batch.to(device=device, dtype=torch.float32)
 
                 preds = net(imgs)
-                #preds = preds['out'] #torchvision syntax
+                #preds = preds['out'] # use for torchvision networks
 
-                loss = criterion(preds, true_masks_cat)
-                loss_batch += loss.item() #moved to compensate for batch repeat
+                loss = criterion(preds, true_masks)
+                loss_batch += loss.item() # compensates for batch repeat
                 
                 loss.backward()
-                nn.utils.clip_grad_value_(net.parameters(), 0.1)
+                #nn.utils.clip_grad_value_(net.parameters(), 0.1)
                 
                 ''' only update optimizer after accumulation '''
                 if (i + 1) % batch_accumulation == 0:
@@ -163,50 +174,47 @@ def train_net(net,
                     global_step += 1
                     loss_batch = 0
                     
-                    ''' validates every 10% of the epoch '''
-                    #if global_step % ((n_train / (1/2)) // true_batch_size) == 0 and data_train_and_validation[1] != '':
+                    # validates every 10% of the epoch
+                    #if global_step % ((n_train / (1/5)) // true_batch_size) == 0 and data_train_and_validation[1] != '':
                     
                     optimizer.zero_grad()
 
         if data_train_and_validation[1] != '':
             ''' logging moved here for epoch '''
             #for tag, value in net.named_parameters():
-                #tag = tag.replace('.', '/')
+                # tag = tag.replace('.', '/')
                 # writer.add_histogram('weights/' + tag, value.data.cpu().numpy(), global_step)
                 # writer.add_histogram('grads/' + tag, value.grad.data.cpu().numpy(), global_step)
-            val_i_mean, val_s_mean, val_tot_mean, val_tot_median, val_diam_mean, val_diam_median, val_x_tot_mean, val_y_tot_mean = validate_mean_and_median_for_distance_and_diameter(
-                net, val_loader, device)
+            validate_mean_dice, validate_median_dice, validate_mean_iou, validate_median_iou, validate_mean_hd, validate_median_hd = validate_mean_and_median_hd(net, val_loader, device)
 
             current_lr = scheduler.optimizer.param_groups[0]['lr']
             writer.add_scalar('Learning_rate', current_lr, global_step)
             logging.info('Learning rate : {}'.format(current_lr))
-            scheduler.step(round(val_tot_mean, 3))
+            scheduler.step(validate_mean_dice)
 
-            # logging.info('Validation ED inferior mean: {}'.format(val_i_mean))
-            writer.add_scalar('ED_inferior_mean/eval', val_i_mean, global_step)
-            # logging.info('Validation ED superior mean: {}'.format(val_s_mean))
-            writer.add_scalar('ED_superior_mean/eval', val_s_mean, global_step)
+            logging.info('Validation Mean Dice: {}'.format(validate_mean_dice))
+            logging.info('Validation Median Dice: {}'.format(validate_median_dice))
+            writer.add_scalar('Mean_Dice/eval', validate_mean_dice, global_step)
+            writer.add_scalar('Median_Dice/eval', validate_median_dice, global_step)
 
-            # logging.info('Validation tot x diff  mean: {}'.format(val_x_tot_mean))
-            writer.add_scalar('x_tot_mean/eval', val_x_tot_mean, global_step)
-            # logging.info('Validation tot y diff mean: {}'.format(val_y_tot_mean))
-            writer.add_scalar('y_tot_mean/eval', val_y_tot_mean, global_step)
+            #logging.info('Validation Mean IoU: {}'.format(validate_mean_iou))
+            #logging.info('Validation Median IoU: {}'.format(validate_median_iou))
+            writer.add_scalar('Mean_IoU/eval', validate_mean_iou, global_step)
+            writer.add_scalar('Median_IoU/eval', validate_median_iou, global_step)
 
-            logging.info('Validation ED total pixel mean: {}'.format(val_tot_mean))
-            writer.add_scalar('ED_total_mean/eval', val_tot_mean, global_step)
-            logging.info('Validation ED total pixel median: {}'.format(val_tot_median))
-            writer.add_scalar('ED_total_median/eval', val_tot_median, global_step)
+            logging.info('Validation Mean HD: {}'.format(validate_mean_hd))
+            logging.info('Validation Median HD: {}'.format(validate_median_hd))
+            writer.add_scalar('Mean_HD/eval', validate_mean_hd, global_step)
+            writer.add_scalar('Median_HD/eval', validate_median_hd, global_step)
 
-            logging.info('Validation LVOT diameter pixel mean: {}'.format(val_diam_mean))
-            writer.add_scalar('LVOT_diameter_pixel_mean/eval', val_diam_mean, global_step)
-            logging.info('Validation LVOT diameter pixel median: {}'.format(val_diam_median))
-            writer.add_scalar('LVOT_diameter_pixel_median/eval', val_diam_median, global_step)
-
-            ''' show predictions in heatmap format '''
+            ''' show prediction in heatmap format '''
             # preds_heatmap = show_preds_heatmap(preds)
+
             # writer.add_images('images', imgs, global_step)
-            # writer.add_images('masks/true', true_masks_cat.view(true_masks_cat.shape[0] * true_masks_cat.shape[1], 1, true_masks_cat.shape[2], true_masks_cat.shape[3]), global_step)
-            # writer.add_images('masks/pred', preds_heatmap, global_step)
+            # writer.add_images('masks/true', true_masks, global_step)
+            # writer.add_images('masks/pred', torch.sigmoid(preds.detach().cpu()) > 0.5, global_step)
+            # writer.add_images('heatmap/pred', preds_heatmap, global_step)
+
         else:
             ''' lower learning rate for optim for 2 stages '''
             if epoch == 18:
@@ -232,10 +240,6 @@ def train_net(net,
                 }, path.join(checkpoints_dir, f'{time_stamp}_{model_name}_{train_and_val}_{train_type}{epoch + 1}_LR{learning_rate}_BS{true_batch_size}_SCL{img_scale}.pth'))
             logging.info(f'Checkpoint {start_epoch + epoch + 1} saved !')
 
-            checkpoint_end_stats = open(f'runs/{time_stamp}_{model_name}_{train_and_val}_{train_type}{epoch + 1}_LR{learning_rate}_BS{true_batch_size}_SCL{img_scale}.csv', 'w')
-            checkpoint_end_stats.writelines(['val_tot_mean, val_tot_median, val_diam_mean, val_diam_median, val_x_tot_mean, val_y_tot_mean\n', f'{val_tot_mean}, {val_tot_median}, {val_diam_mean}, {val_diam_median}, {val_x_tot_mean}, {val_y_tot_mean}'])
-            checkpoint_end_stats.close()
-
         ''' save model state without optimizer '''
         #torch.save(net.state_dict(), dir_checkpoint + f'CP_epoch{epoch + 1}_LR_{learning_rate}_BS_{batch_size}_SCALE_{img_scale}_VAL_{val_percent}_RUNTIME_{timestamp}.pth')
 
@@ -251,30 +255,27 @@ if __name__ == '__main__':
     summary_writer_dir = 'runs'
     
     ''' define model_name before running '''
-    model_name = 'EFFIB1UNET_DSNTFULL_LR5_ADAM'
-    n_classes = 2
+    model_name = 'EFFIB1UNET-LR5-DICBCE_AL_IMGN_ADAM'
+    n_classes = 1
     n_channels = 1
     
     training_parameters = dict(
         data_train_and_validation = [
-            ['GE1408_HMHM_K1', 'GE1408_HMHM_K1'],
-            ['GE1408_HMHM_K2', 'GE1408_HMHM_K2'],
-            ['GE1408_HMHM_K3', 'GE1408_HMHM_K3'],
-            ['GE1408_HMHM_K4', 'GE1408_HMHM_K4'],
-            ['GE1408_HMHM_K5', 'GE1408_HMHM_K5'],
+            ['LV715_flipped', 'RV146'],
             ],
         epochs=[30],
         learning_rate=[0.001],
         batch_size=[10],
         batch_accumulation=[2],
         img_scale=[1],
-        with_gaussian=[False],
-        transfer_learning_path=['']
+        transfer_learning_path=[''],
+        mid_systole_only=[True],
+        coord_conv=[False]
     )
     
     ''' used to train multiple models in succession. add variables to arrays to make more combinations '''
     param_values = [v for v in training_parameters.values()]
-    for data_train_and_validation, epochs, learning_rate, batch_size, batch_accumulation, img_scale, with_gaussian, transfer_learning_path in product(*param_values):
+    for data_train_and_validation, epochs, learning_rate, batch_size, batch_accumulation, img_scale, transfer_learning_path, mid_systole_only, coord_conv in product(*param_values):
 
         current_train_imgs_dir = path.join(data_train_dir, 'imgs', data_train_and_validation[0])
         current_train_masks_dir = path.join(data_train_dir, 'masks', data_train_and_validation[0])
@@ -289,12 +290,10 @@ if __name__ == '__main__':
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         logging.info(f'Using device {device}')
 
-        #net = fcn_resnet50(pretrained=False, progress=True, in_channels=n_channels, num_classes=n_classes, aux_loss=None)  # non-pretrained runs
-        #net = fcn_resnet50(pretrained=True, progress=True, in_channels=n_channels, num_classes=21, aux_loss=None) #num_classes = 21 is necessary to load the pretrained model
-        #net.fc = nn.Linear(512, n_classes)  # to change final pretrained output layer for torchvision models
-        net = smp.Unet(encoder_name="efficientnet-b1", encoder_weights=None, in_channels=n_channels, classes=n_classes)
+        #net = fcn_resnet50(pretrained=False, progress=True, in_channels=n_channels, num_classes=n_classes, aux_loss=None)
         #net = smp.Unet(encoder_name="resnet50", encoder_weights=None, in_channels=n_channels, classes=n_classes)
-
+        net = smp.Unet(encoder_name="efficientnet-b1", encoder_weights='imagenet', in_channels=n_channels, classes=n_classes)
+        #net = UNet(n_channels, n_classes, bilinear=False)
 
         logging.info(f'Network:\n'
                      f'\t{n_channels} input channels\n'
@@ -321,8 +320,9 @@ if __name__ == '__main__':
                       batch_size=batch_size,
                       batch_accumulation=batch_accumulation,
                       img_scale=img_scale,
-                      with_gaussian=with_gaussian,
-                      transfer_learning_path=transfer_learning_path)
+                      transfer_learning_path=transfer_learning_path,
+                      mid_systole_only=mid_systole_only,
+                      coord_conv=coord_conv)
         except KeyboardInterrupt:
             torch.save(net.state_dict(), 'INTERRUPTED.pth')
             logging.info('Saved interrupt')

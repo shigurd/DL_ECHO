@@ -122,8 +122,8 @@ class BasicDataset(Dataset):
 
         i_angle, s_angle = calculate_angle(i_x[0], i_y[0], s_x[0], s_y[0])
 
-        imask_np = create_gaussian_on_mask(imask_np, i_x, i_y, i_angle, x_warp=8, y_warp=1, sigma=3)
-        smask_np = create_gaussian_on_mask(smask_np, s_x, s_y, s_angle, x_warp=8, y_warp=1, sigma=3)
+        imask_np = create_gaussian_on_mask(imask_np, i_x, i_y, i_angle, x_warp=5, y_warp=1, sigma=3)
+        smask_np = create_gaussian_on_mask(smask_np, s_x, s_y, s_angle, x_warp=5, y_warp=1, sigma=3)
 
         temp_i = Image.fromarray(imask_np.astype(np.uint8)).convert('L')
         temp_s = Image.fromarray(smask_np.astype(np.uint8)).convert('L')

@@ -39,7 +39,7 @@ def match_patient_count(smaller_folder_pth, larger_folder_img_pth, larger_folder
         [shutil.copyfile(m, os.path.join(new_mask_folder, os.path.basename(m))) for m in mask_wildcard]
 
 
-def n_patient_partition(img_folder, mask_folder, increment):
+def n_patient_partition(img_folder, mask_folder, increment, n_masks=1):
     patient_list = patient_list_from_folder(img_folder)
     patient_total = len(patient_list)
     print(f'n patients in {os.path.basename(img_folder)}:', patient_total)
@@ -73,7 +73,7 @@ def n_patient_partition(img_folder, mask_folder, increment):
             img_wildcard = glob.glob(img_folder + '/' + p + '*')
             mask_wildcard = glob.glob(mask_folder + '/' + p + '*')
 
-            assert len(img_wildcard) == len(mask_wildcard)
+            assert len(img_wildcard) * n_masks == len(mask_wildcard)
 
             [shutil.copyfile(found_img, os.path.join(new_img_dir, os.path.basename(found_img))) for found_img in img_wildcard]
             [shutil.copyfile(found_mask, os.path.join(new_mask_dir, os.path.basename(found_mask))) for found_mask in mask_wildcard]

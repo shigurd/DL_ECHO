@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 from utils.validation_LVOT import validate_mean_and_median_for_distance_and_diameter
 from utils.dataloader_LVOT import BasicDataset
-from utils.point_losses_LVOT import DSNTDistanceAngleDoubleLoss, DSNTJSDDoubleLoss, DSNTDoubleLoss, DSNTJSDDistanceDoubleLossNew
+from utils.point_losses_LVOT import DSNTDoubleLossNewMSECnoED, DSNTDistanceDoubleLossNew, DSNTDoubleLossNew, DSNTDoubleLossNewMSEC, DSNTJSDDoubleLossNew, DSNTJSDDistanceDoubleLossNew
 
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader
@@ -41,6 +41,7 @@ def train_net(net,
               batch_size=10,
               batch_accumulation=1,
               img_scale=1,
+              with_gaussian=False,
               transfer_learning_path=''):
 
     ''' define optimizer and loss '''
@@ -48,12 +49,12 @@ def train_net(net,
     optimizer = optim.Adam(net.parameters(), lr=learning_rate, weight_decay=1e-8)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5)  # patience is number of epochs for improvement
 
-    #criterion = DSNTDoubleLoss()
-    #criterion = DSNTDistanceDoubleLoss()
-    #criterion = DSNTJSDDoubleLoss()
-    #criterion = DistanceDoubleLoss()
-    #criterion = DSNTDistanceAngleDoubleLoss()
-    criterion = DSNTJSDDistanceDoubleLossNew()
+    criterion = DSNTDoubleLossNew()
+    # criterion = DSNTDoubleLossNewMSEC()
+    # criterion = DSNTJSDDoubleLossNew()
+    # criterion = DSNTDistanceDoubleLossNew()
+    # criterion = DSNTJSDDoubleLossNew()
+    # criterion = DSNTJSDDistanceDoubleLossNew()
 
     ''' to check if training is from scratch or transfer learning/checkpoint appending '''
     if transfer_learning_path != '':
@@ -61,7 +62,7 @@ def train_net(net,
             ''' loads model parameters and optimizer status if logged '''
             start_checkpoint = torch.load(transfer_learning_path)
             net.load_state_dict(start_checkpoint['model_state_dict'])
-            optimizer.load_state_dict(start_checkpoint['optimizer_state_dict'])
+            #optimizer.load_state_dict(start_checkpoint['optimizer_state_dict'])
             start_epoch = start_checkpoint['epoch']
         except:
             ''' loads only model parameters '''
@@ -73,12 +74,12 @@ def train_net(net,
         train_type = 'EP'
     
     ''' dataloader for training and evaluation '''
-    train = BasicDataset(train_imgs_dir, train_masks_dir, img_scale=img_scale)
+    train = BasicDataset(train_imgs_dir, train_masks_dir, img_scale=img_scale, with_gaussian=with_gaussian)
     n_train = len(train)
     train_loader = DataLoader(train, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True)
     
     if data_train_and_validation[1] != '':
-        val = BasicDataset(validate_imgs_dir, validate_masks_dir, img_scale)
+        val = BasicDataset(validate_imgs_dir, validate_masks_dir, img_scale, with_gaussian=with_gaussian)
         n_val = len(val)
         val_loader = DataLoader(val, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True, drop_last=False)
 
@@ -173,18 +174,23 @@ def train_net(net,
                 #tag = tag.replace('.', '/')
                 # writer.add_histogram('weights/' + tag, value.data.cpu().numpy(), global_step)
                 # writer.add_histogram('grads/' + tag, value.grad.data.cpu().numpy(), global_step)
-            val_i_mean, val_s_mean, val_tot_mean, val_tot_median, val_diam_mean, val_diam_median = validate_mean_and_median_for_distance_and_diameter(net, val_loader, device)
+            val_i_mean, val_s_mean, val_tot_mean, val_tot_median, val_diam_mean, val_diam_median, val_x_tot_mean, val_y_tot_mean = validate_mean_and_median_for_distance_and_diameter(
+                net, val_loader, device)
 
             current_lr = scheduler.optimizer.param_groups[0]['lr']
             writer.add_scalar('Learning_rate', current_lr, global_step)
             logging.info('Learning rate : {}'.format(current_lr))
-            scheduler.step(val_diam_mean)
+            scheduler.step(round(val_tot_mean, 3))
 
             # logging.info('Validation ED inferior mean: {}'.format(val_i_mean))
             writer.add_scalar('ED_inferior_mean/eval', val_i_mean, global_step)
-
             # logging.info('Validation ED superior mean: {}'.format(val_s_mean))
             writer.add_scalar('ED_superior_mean/eval', val_s_mean, global_step)
+
+            # logging.info('Validation tot x diff  mean: {}'.format(val_x_tot_mean))
+            writer.add_scalar('x_tot_mean/eval', val_x_tot_mean, global_step)
+            # logging.info('Validation tot y diff mean: {}'.format(val_y_tot_mean))
+            writer.add_scalar('y_tot_mean/eval', val_y_tot_mean, global_step)
 
             logging.info('Validation ED total pixel mean: {}'.format(val_tot_mean))
             writer.add_scalar('ED_total_mean/eval', val_tot_mean, global_step)
@@ -226,6 +232,14 @@ def train_net(net,
                 }, path.join(checkpoints_dir, f'{time_stamp}_{model_name}_{train_and_val}_{train_type}{epoch + 1}_LR{learning_rate}_BS{true_batch_size}_SCL{img_scale}.pth'))
             logging.info(f'Checkpoint {start_epoch + epoch + 1} saved !')
 
+            checkpoint_end_stats = open(
+                f'runs/{time_stamp}_{model_name}_{train_and_val}_{train_type}{epoch + 1}_LR{learning_rate}_BS{true_batch_size}_SCL{img_scale}.csv',
+                'w')
+            checkpoint_end_stats.writelines(
+                ['val_tot_mean, val_tot_median, val_diam_mean, val_diam_median, val_x_tot_mean, val_y_tot_mean\n',
+                 f'{val_tot_mean}, {val_tot_median}, {val_diam_mean}, {val_diam_median}, {val_x_tot_mean}, {val_y_tot_mean}'])
+            checkpoint_end_stats.close()
+
         ''' save model state without optimizer '''
         #torch.save(net.state_dict(), dir_checkpoint + f'CP_epoch{epoch + 1}_LR_{learning_rate}_BS_{batch_size}_SCALE_{img_scale}_VAL_{val_percent}_RUNTIME_{timestamp}.pth')
 
@@ -241,29 +255,30 @@ if __name__ == '__main__':
     summary_writer_dir = 'runs'
     
     ''' define model_name before running '''
-    model_name = 'EFFIB0_DSNTJSDDISTNEW2_IMGN_AL_ADAM'
+    model_name = 'EFFIB1UNET_DSNTFULL_LR5_AL_ADAM'
     n_classes = 2
-    n_channels = 3
+    n_channels = 1
     
     training_parameters = dict(
         data_train_and_validation = [
-            ['AVA1314X5_HMHM_K1', 'AVA1314X5_HMHM_K1'],
-            ['AVA1314X5_HMHM_K2', 'AVA1314X5_HMHM_K2'],
-            ['AVA1314X5_HMHM_K3', 'AVA1314X5_HMHM_K3'],
-            ['AVA1314X5_HMHM_K4', 'AVA1314X5_HMHM_K4'],
-            ['AVA1314X5_HMHM_K5', 'AVA1314X5_HMHM_K5']
+            ['GE1408_HMLHMLAVA_K1', 'GE1408_HMHMAVA_K1'],
+            ['GE1408_HMLHMLAVA_K2', 'GE1408_HMHMAVA_K2'],
+            ['GE1408_HMLHMLAVA_K3', 'GE1408_HMHMAVA_K3'],
+            ['GE1408_HMLHMLAVA_K4', 'GE1408_HMHMAVA_K4'],
+            ['GE1408_HMLHMLAVA_K5', 'GE1408_HMHMAVA_K5'],
             ],
-        epochs=[60*5],
-        learning_rate=[0.0005],
+        epochs=[30],
+        learning_rate=[0.001],
         batch_size=[10],
         batch_accumulation=[2],
         img_scale=[1],
+        with_gaussian=[False],
         transfer_learning_path=['']
     )
     
     ''' used to train multiple models in succession. add variables to arrays to make more combinations '''
     param_values = [v for v in training_parameters.values()]
-    for data_train_and_validation, epochs, learning_rate, batch_size, batch_accumulation, img_scale, transfer_learning_path in product(*param_values):
+    for data_train_and_validation, epochs, learning_rate, batch_size, batch_accumulation, img_scale, with_gaussian, transfer_learning_path in product(*param_values):
 
         current_train_imgs_dir = path.join(data_train_dir, 'imgs', data_train_and_validation[0])
         current_train_masks_dir = path.join(data_train_dir, 'masks', data_train_and_validation[0])
@@ -280,7 +295,7 @@ if __name__ == '__main__':
 
         #net = fcn_resnet50(pretrained=True, progress=True, in_channels=n_channels, num_classes=21, aux_loss=None) #num_classes = 21 is necessary to load the pretrained model
         #net.fc = nn.Linear(512, n_classes)  # to change final pretrained output layer for torchvision models
-        net = smp.Unet(encoder_name="efficientnet-b1", encoder_weights='imagenet', in_channels=n_channels, classes=n_classes)
+        net = smp.Unet(encoder_name="efficientnet-b1", encoder_weights=None, in_channels=n_channels, classes=n_classes)
 
         logging.info(f'Network:\n'
                      f'\t{n_channels} input channels\n'
@@ -307,6 +322,7 @@ if __name__ == '__main__':
                       batch_size=batch_size,
                       batch_accumulation=batch_accumulation,
                       img_scale=img_scale,
+                      with_gaussian=with_gaussian,
                       transfer_learning_path=transfer_learning_path)
         except KeyboardInterrupt:
             torch.save(net.state_dict(), 'INTERRUPTED.pth')
