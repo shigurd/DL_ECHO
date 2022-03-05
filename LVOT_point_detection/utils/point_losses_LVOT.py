@@ -426,6 +426,72 @@ class DSNTDistanceDoubleLossNew(nn.Module):
         return s / (i + 1)
 
 
+class DSNTCosDoubleLossNew(nn.Module):
+    def __init__(self):
+        super(DSNTCosDoubleLossNew, self).__init__()
+
+    def forward(self, input, target):
+        if input.is_cuda:
+            s = torch.FloatTensor(1).cuda().zero_()
+        else:
+            s = torch.FloatTensor(1).zero_()
+
+        ''' make the evenly spaced x and y coordinate masks '''
+        x_size = input.shape[-1]
+        y_size = input.shape[-2]
+
+        # y_soft_argmax, x_soft_argmax = coordinate_map_sigmoid(y_size, x_size)
+        #y_soft_argmax, x_soft_argmax = coordinate_map_tanh_range_half(y_size, x_size)
+        y_soft_argmax, x_soft_argmax = coordinate_map_tanh_range_full(y_size, x_size)
+        y_soft_argmax = y_soft_argmax.cuda()
+        x_soft_argmax = x_soft_argmax.cuda()
+
+        for i, c in enumerate(zip(input, target)):
+
+            pred_dist_list_array = []
+            true_dist_list_array = []
+
+            for o, points in enumerate(zip(c[0], c[1])):
+                ''' calculates center of mass of the heatmap with softmax, in other words DSNT '''
+                softmax = nn.Softmax(0)
+                pred_mask_softmax = softmax(points[0].view(-1)).view(points[0].shape)
+
+                pred_x_coord = torch.sum(pred_mask_softmax * x_soft_argmax).cuda()
+                pred_y_coord = torch.sum(pred_mask_softmax * y_soft_argmax).cuda()
+
+                ''' argmax for ground truth, remember to convert euqlician coords to tanh '''
+                coord_argmax = torch.argmax(points[1]).detach()
+                # true_x_coord = ((coord_argmax % x_size + 1).float() / x_size).cuda()
+                # true_y_coord = ((coord_argmax // x_size + 1).float() / y_size).cuda()
+                #true_x_coord = ((coord_argmax % x_size + 1 - x_size / 2).float() / x_size).cuda()
+                #rue_y_coord = ((coord_argmax // x_size + 1 - y_size / 2).float() / y_size).cuda()
+                true_x_coord = (((coord_argmax % x_size + 1) * 2 - (x_size + 1)).float() / x_size).cuda()
+                true_y_coord = (((coord_argmax // x_size + 1) * 2 - (y_size + 1)).float() / y_size).cuda()
+
+                ''' euclidian distance with DSNT, ED is naturally a loss since distance should be minimized '''
+                ed_loss = torch.sqrt((true_x_coord - pred_x_coord) ** 2 + (true_y_coord - pred_y_coord) ** 2)
+                s += ed_loss
+
+                ''' add point to distance calculation tensor '''
+                pred_coords_stack = torch.stack((pred_x_coord, pred_y_coord))
+                true_coords_stack = torch.stack((true_x_coord, true_y_coord))
+
+                pred_dist_list_array.append(pred_coords_stack)
+                true_dist_list_array.append(true_coords_stack)
+
+            ''' calculate true absolute distance and predicted absolute distance to find the absolute difference '''
+            pred_vector = pred_dist_list_array[0] - pred_dist_list_array[1]
+            true_vector = true_dist_list_array[0] - true_dist_list_array[1]
+
+            ''' angle error between predicted and true vector '''
+            cos = torch.nn.CosineSimilarity(dim=1)
+            cos_distance = 1 - cos(pred_vector, true_vector)
+
+            s += cos_distance
+
+        return s / (i + 1)
+
+
 class DSNTJSDDistAnglDoubleLossNew(nn.Module):
     def __init__(self):
         super(DSNTJSDDistAnglDoubleLossNew, self).__init__()

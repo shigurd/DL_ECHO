@@ -14,6 +14,7 @@ import ast
 
 from utils.dataloader_LVOT import BasicDataset
 from utils.point_losses_LVOT import PixelDSNTDistanceDoublePredict
+from utils.plot_normalized_diameters_LVOT import calculate_scaled_points
 
 sys.path.insert(0, '..')
 from networks.resnet50_torchvision import fcn_resnet50, fcn_resnet101, deeplabv3_resnet50, deeplabv3_resnet101
@@ -302,8 +303,17 @@ def get_output_filenames(in_file):
     return out_files
 
 
+def add_points_to_lvot_plot(true_coordinate_list, pred_coordinate_list, canvas_np, norm_s_x, norm_s_y, lvot_size_pix=100):
+    pred_i_coordinate_scaled, pred_s_coordinate_scaled = calculate_scaled_points(true_coordinate_list, pred_coordinate_list, lvot_size_pix, norm_s_x, norm_s_y)
+
+    canvas_np[pred_s_coordinate_scaled[1], pred_s_coordinate_scaled[0], 0] = 255
+    canvas_np[pred_i_coordinate_scaled[1], pred_i_coordinate_scaled[0], 0] = 255
+
+    return canvas_np
+
+
 if __name__ == "__main__":
-    
+
     ''' define model name, prediction dataset and model parameters '''
     #keyfile_csv = r'H:/ML_LVOT/backup_keyfile_and_duplicate/keyfile_GE1424_QC.csv'
     keyfile_csv = ''
@@ -314,6 +324,7 @@ if __name__ == "__main__":
     scaling = 1
     compare_with_ground_truth = True
     output_with_heatmap = True
+    normalized_lvot_plot = True
 
     model_path = path.join('checkpoints', model_file)
     dir_img = path.join('data', 'validate', 'imgs', data_name)
@@ -327,11 +338,11 @@ if __name__ == "__main__":
 
     predictions_output = path.join('predictions', model_name)
     os.mkdir(predictions_output)
-    
+
     ''' create filenames for output '''
     input_files = os.listdir(dir_img)
     out_files = get_output_filenames(input_files)
-    
+
     ''' define network settings '''
     #net = fcn_resnet50(pretrained=False, progress=True, in_channels=n_channels, num_classes=n_classes, aux_loss=None)
     #net = smp.Unet(encoder_name="resnet50", encoder_weights=None, in_channels=n_channels, classes=n_classes)
@@ -342,12 +353,12 @@ if __name__ == "__main__":
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     logging.info(f'Using device {device}')
     net.to(device=device)
-    
+
     ''' load checkpoint data '''
     checkpoint_data = torch.load(model_path, map_location=device)
     net.load_state_dict(checkpoint_data['model_state_dict'])
     logging.info("Checkpoint loaded !")
-    
+
     if compare_with_ground_truth == True:
         file = open(path.join(predictions_output, f'COORD_DATA.txt'), 'w+')
         file.write('file_name,measure_type,view_type,img_quality,gt_quality,pred_diam_cm,true_diam_cm,diff_diam_cm,i_ed_cm,s_ed_cm,tot_ed_cm,pred_diam_pix,true_diam_pix,diff_diam_pix,i_ed_pix,s_ed_pix,tot_ed_pix\n')
@@ -362,6 +373,22 @@ if __name__ == "__main__":
         total_sum_ed_pix = 0
         total_lvot_diam_absdiff_pix = 0
         total_lvot_diam_absdiff_cm = 0
+
+    if normalized_lvot_plot == True:
+        height, width, color = (256, 256, 3)
+        lvot_plot_np = np.zeros((height, width, color))
+        lvot_size_pix = 100
+
+        ''' reference normalized s and i coordinates '''
+        norm_s_y = int((height - 1 - 100) / 2)
+        norm_i_y = norm_s_y + lvot_size_pix
+        norm_s_x = int((width - 1) / 2)
+        norm_i_x = norm_s_x
+
+        ''' draw reference cross '''
+        lvot_plot_np = draw_cross(lvot_plot_np, norm_s_x, norm_s_y, 4, color=[0, 255, 0])
+        lvot_plot_np = draw_cross(lvot_plot_np, norm_i_x, norm_i_y, 4, color=[0, 255, 0])
+
 
     with tqdm(total=len(input_files), desc='Predictions', unit='imgs', leave=False) as pbar:
 
@@ -445,6 +472,9 @@ if __name__ == "__main__":
                 absdiff_diam_pix = '{:.4f}'.format(absdiff_diam_pix)
                 pred_plot.save(path.join(predictions_output, f'{str(absdiff_diam_pix)}_{out_fn}'))
 
+                if normalized_lvot_plot == True:
+                    lvot_plot_np = add_points_to_lvot_plot(true_coordinate_list, pred_coordinate_list, lvot_plot_np, norm_s_x, norm_s_y, lvot_size_pix=100)
+
             else:
                 ''' just save coordinate overlay on original image '''
                 pred_plot = predict_plot_on_image(img_pil, pred_coordinate_list, true_coordinate_list, plot_gt=compare_with_ground_truth)
@@ -485,6 +515,11 @@ if __name__ == "__main__":
                 file1.write(f'MEDIAN LVOTd cm: {median_lvot_diam_absdiff_cm}\n')
 
             file1.close()
+
+            if normalized_lvot_plot == True:
+                lvot_plot_pil = Image.fromarray(lvot_plot_np.astype(np.uint8))
+                lvot_plot_pil.save(path.join(predictions_output, 'LVOT_testdata_plot_normalized.png'))
+
 
 
 

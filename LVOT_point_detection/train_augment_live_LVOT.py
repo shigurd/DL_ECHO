@@ -35,13 +35,14 @@ def train_net(net,
               train_masks_dir,
               validate_imgs_dir,
               validate_masks_dir,
-              n_channels=3,
+              n_channels=1,
               epochs=30,
               learning_rate=0.001,
               batch_size=10,
               batch_accumulation=1,
               img_scale=1,
               with_gaussian=False,
+              with_cc=False,
               transfer_learning_path=''):
 
     ''' define optimizer and loss '''
@@ -74,7 +75,7 @@ def train_net(net,
         train_type = 'EP'
     
     ''' dataloader for training and evaluation '''
-    train = BasicDataset(train_imgs_dir, train_masks_dir, img_scale=img_scale, with_gaussian=with_gaussian)
+    train = BasicDataset(train_imgs_dir, train_masks_dir, img_scale=img_scale, with_gaussian=with_gaussian, with_cc=with_cc)
     n_train = len(train)
     train_loader = DataLoader(train, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True)
     
@@ -180,7 +181,7 @@ def train_net(net,
             current_lr = scheduler.optimizer.param_groups[0]['lr']
             writer.add_scalar('Learning_rate', current_lr, global_step)
             logging.info('Learning rate : {}'.format(current_lr))
-            scheduler.step(round(val_tot_mean, 3))
+            scheduler.step(val_tot_mean)
 
             # logging.info('Validation ED inferior mean: {}'.format(val_i_mean))
             writer.add_scalar('ED_inferior_mean/eval', val_i_mean, global_step)
@@ -273,12 +274,13 @@ if __name__ == '__main__':
         batch_accumulation=[2],
         img_scale=[1],
         with_gaussian=[False],
+        with_cc=[False],
         transfer_learning_path=['']
     )
     
     ''' used to train multiple models in succession. add variables to arrays to make more combinations '''
     param_values = [v for v in training_parameters.values()]
-    for data_train_and_validation, epochs, learning_rate, batch_size, batch_accumulation, img_scale, with_gaussian, transfer_learning_path in product(*param_values):
+    for data_train_and_validation, epochs, learning_rate, batch_size, batch_accumulation, img_scale, with_gaussian, with_cc, transfer_learning_path in product(*param_values):
 
         current_train_imgs_dir = path.join(data_train_dir, 'imgs', data_train_and_validation[0])
         current_train_masks_dir = path.join(data_train_dir, 'masks', data_train_and_validation[0])
@@ -295,7 +297,7 @@ if __name__ == '__main__':
 
         #net = fcn_resnet50(pretrained=True, progress=True, in_channels=n_channels, num_classes=21, aux_loss=None) #num_classes = 21 is necessary to load the pretrained model
         #net.fc = nn.Linear(512, n_classes)  # to change final pretrained output layer for torchvision models
-        net = smp.Unet(encoder_name="efficientnet-b1", encoder_weights=None, in_channels=n_channels, classes=n_classes)
+        net = smp.Unet(encoder_name="efficientnet-b2", encoder_weights=None, in_channels=n_channels, classes=n_classes)
 
         logging.info(f'Network:\n'
                      f'\t{n_channels} input channels\n'
@@ -323,6 +325,7 @@ if __name__ == '__main__':
                       batch_accumulation=batch_accumulation,
                       img_scale=img_scale,
                       with_gaussian=with_gaussian,
+                      with_cc=with_cc,
                       transfer_learning_path=transfer_learning_path)
         except KeyboardInterrupt:
             torch.save(net.state_dict(), 'INTERRUPTED.pth')

@@ -45,11 +45,12 @@ def calculate_angle(x_i, y_i, x_s, y_s):
 
 
 class BasicDataset(Dataset):
-    def __init__(self, imgs_dir, masks_dir, img_scale=1, with_gaussian=False):
+    def __init__(self, imgs_dir, masks_dir, img_scale=1, with_gaussian=False, with_cc=False):
         self.imgs_dir = imgs_dir
         self.masks_dir = masks_dir
         self.scale = img_scale
         self.with_gaussian = with_gaussian
+        self.with_cc = with_cc
         assert 0 < img_scale <= 1, 'Scale must be between 0 and 1'
 
         self.ids = [splitext(file)[0] for file in listdir(imgs_dir)]
@@ -102,18 +103,20 @@ class BasicDataset(Dataset):
         cc_y = np.zeros((y_size, x_size))
 
         for p in range(y_size):
-            cc_y[p, :] = (p + 1) / y_size
+            cc_y[p, :] = (2 * (p + 1) - (y_size + 1)) / y_size
 
         for j in range(x_size):
-            cc_x[:, j] = (j + 1) / x_size
+            cc_x[:, j] = (2 * (j + 1) - (x_size + 1)) / x_size
 
         cc_y = np.expand_dims(cc_y, axis=0)
         cc_x = np.expand_dims(cc_x, axis=0)
         img = np.concatenate((np_img, cc_y, cc_x), axis=0)
+
         return img
 
+    ''' add cc channels to image '''
     @classmethod
-    def add_gaussian_to_masks(cls, imask_pil, smask_pil, img):
+    def add_gaussian_to_masks(cls, imask_pil, smask_pil):
         imask_np = np.array(imask_pil)
         smask_np = np.array(smask_pil)
 
@@ -154,6 +157,10 @@ class BasicDataset(Dataset):
             mask_i, mask_s = self.add_gaussian_to_masks(mask_i, mask_s, img)
 
         img = self.preprocess(img, self.scale)
+
+        if self.with_cc == True:
+            img = self.add_cc_channel(img)
+
         mask_i = self.preprocess(mask_i, self.scale)
         mask_s = self.preprocess(mask_s, self.scale)
 

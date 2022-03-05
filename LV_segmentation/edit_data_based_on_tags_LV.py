@@ -8,6 +8,7 @@ if __name__ == '__main__':
     ''' remove tags from train folders '''
 
     #data_names = ['CAMUS1800_HML_K1', 'CAMUS1800_HML_K2', 'CAMUS1800_HML_K3', 'CAMUS1800_HML_K4', 'CAMUS1800_HML_K5']
+    #data_names = ['GE1956_HMHM_K1', 'GE1956_HMHM_K2', 'GE1956_HMHM_K3', 'GE1956_HMHM_K4', 'GE1956_HMHM_K5']
     data_names = ['GE1956_HMLHML']
     is_kfold = False
     tags_to_remove = ['CLINICAL']
