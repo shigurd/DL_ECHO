@@ -140,14 +140,16 @@ def draw_cross(img_np, x_center, y_center, radius, color=(255, 255, 255), rgb=Tr
 
 
 if __name__ == '__main__':
-    imgs_dir = r'C:\Users\Brekke\Downloads\CAMUS1800_complete\imgs'
-    masks_dir = r'C:\Users\Brekke\Downloads\CAMUS1800_complete\masks'
-    mask_output = r'C:\Users\Brekke\Downloads\CAMUS1800_complete\masks_MV'
-    overlay_output = r'C:\Users\Brekke\Downloads\CAMUS1800_complete\overlay_MV'
+    imgs_dir = r'C:\Users\Brekke\Downloads\imgs'
+    masks_dir = r'C:\Users\Brekke\Downloads\masks'
+    mask_output = r'C:\Users\Brekke\Downloads\masks_MV'
+    imgs_output = r'C:\Users\Brekke\Downloads\imgs_MV'
+    overlay_output = r'C:\Users\Brekke\Downloads\overlays_MV'
     os.mkdir(mask_output)
     os.mkdir(overlay_output)
+    os.mkdir(imgs_output)
 
-    csv_name = r'C:\Users\Brekke\Downloads\CAMUS1800_complete\masks_MV\CAMUS1800HML_coords.csv'
+    csv_name = r'C:\Users\Brekke\Downloads\CAMUS1800HML_MV.csv'
     csv_log = open(csv_name, 'w', newline='')
     writer = csv.writer(csv_log)
     writer.writerow(['file_name', 'l_x_pix', 'l_y_pix', 'r_x_pix', 'r_y_pix'])
@@ -172,15 +174,24 @@ if __name__ == '__main__':
                 mask_l_pil = coord_to_pil_mask(256, 256, coord_list[0][0], coord_list[0][1])
                 mask_r_pil = coord_to_pil_mask(256, 256, coord_list[1][0], coord_list[1][1])
 
-                mask_l_pil.save(os.path.join(mask_output, f'{x.rsplit("_", 1)[0]}_lmask.png'))
-                mask_r_pil.save(os.path.join(mask_output, f'{x.rsplit("_", 1)[0]}_rmask.png'))
+                ''' 90 degree rotation '''
+                mask_l_pil = mask_l_pil.rotate(-90)
+                mask_r_pil = mask_r_pil.rotate(-90)
+
+                mask_l_pil.save(os.path.join(mask_output, f'{x.rsplit("_", 1)[0]}_smask.png'))
+                mask_r_pil.save(os.path.join(mask_output, f'{x.rsplit("_", 1)[0]}_imask.png'))
 
                 img_name = f'{x.rsplit("_", 1)[0]}.png'
                 img_pth = os.path.join(imgs_dir, img_name)
-                img_pil = Image.open(img_pth).convert('RGB')
-                img_np = np.array(img_pil)
 
-                img_1_point_np = draw_cross(img_np, coord_list[0][0], coord_list[0][1], radius=4, color=[0, 255, 0], rgb=True)
+                img_pil = Image.open(img_pth)
+                img_pil = img_pil.rotate(-90)
+                img_pil.save(os.path.join(imgs_output, img_name))
+
+                img_overlay_pil = img_pil.convert('RGB')
+                img_overlay_np = np.array(img_overlay_pil)
+
+                img_1_point_np = draw_cross(img_overlay_np, coord_list[0][0], coord_list[0][1], radius=4, color=[0, 255, 0], rgb=True)
                 img_2_point_np = draw_cross(img_1_point_np, coord_list[1][0], coord_list[1][1], radius=4, color=[0, 255, 0], rgb=True)
 
                 img_2_point_pil = Image.fromarray(img_2_point_np)

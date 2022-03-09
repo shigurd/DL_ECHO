@@ -317,14 +317,15 @@ if __name__ == "__main__":
     ''' define model name, prediction dataset and model parameters '''
     #keyfile_csv = r'H:/ML_LVOT/backup_keyfile_and_duplicate/keyfile_GE1424_QC.csv'
     keyfile_csv = ''
-    model_file = 'Feb28_20-04-10_EFFIB1UNET_DSNTFULL_LR5_ADAM_T-GE1408_HMHM_K4_V-GE1408_HMHMAVA_K4_EP30_LR0.001_BS20_SCL1.pth'
-    data_name = 'GE1408_HMHMAVA_K1'
+    model_file = 'Mar08_18-42-46_EFFIB2UNETIMGN_DSNT_ADAM_LR5_AL_T-GE1408_HMLHML_K1_V-GE1408_HMHM_K1_EP30_LR0.003_BS32.pth'
+    data_name = 'GE1408_HMHM_K1'
     n_channels = 1
     n_classes = 2
     scaling = 1
     compare_with_ground_truth = True
     output_with_heatmap = True
     normalized_lvot_plot = True
+    lvot_size_pix = 65
 
     model_path = path.join('checkpoints', model_file)
     dir_img = path.join('data', 'validate', 'imgs', data_name)
@@ -346,7 +347,7 @@ if __name__ == "__main__":
     ''' define network settings '''
     #net = fcn_resnet50(pretrained=False, progress=True, in_channels=n_channels, num_classes=n_classes, aux_loss=None)
     #net = smp.Unet(encoder_name="resnet50", encoder_weights=None, in_channels=n_channels, classes=n_classes)
-    net = smp.Unet(encoder_name="efficientnet-b1", encoder_weights=None, in_channels=n_channels, classes=n_classes)
+    net = smp.Unet(encoder_name="efficientnet-b2", encoder_weights=None, in_channels=n_channels, classes=n_classes)
 
     logging.info("Loading model {}".format(model_path))
 
@@ -377,10 +378,9 @@ if __name__ == "__main__":
     if normalized_lvot_plot == True:
         height, width, color = (256, 256, 3)
         lvot_plot_np = np.zeros((height, width, color))
-        lvot_size_pix = 100
 
         ''' reference normalized s and i coordinates '''
-        norm_s_y = int((height - 1 - 100) / 2)
+        norm_s_y = int((height - 1 - lvot_size_pix) / 2)
         norm_i_y = norm_s_y + lvot_size_pix
         norm_s_x = int((width - 1) / 2)
         norm_i_x = norm_s_x
@@ -473,7 +473,7 @@ if __name__ == "__main__":
                 pred_plot.save(path.join(predictions_output, f'{str(absdiff_diam_pix)}_{out_fn}'))
 
                 if normalized_lvot_plot == True:
-                    lvot_plot_np = add_points_to_lvot_plot(true_coordinate_list, pred_coordinate_list, lvot_plot_np, norm_s_x, norm_s_y, lvot_size_pix=100)
+                    lvot_plot_np = add_points_to_lvot_plot(true_coordinate_list, pred_coordinate_list, lvot_plot_np, norm_s_x, norm_s_y, lvot_size_pix=lvot_size_pix)
 
             else:
                 ''' just save coordinate overlay on original image '''

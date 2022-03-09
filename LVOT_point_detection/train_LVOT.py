@@ -70,7 +70,7 @@ def train_net(net,
     elif loss_function == 'DSNTMSEC':
         criterion = DSNTDoubleLossNewMSEC()
     elif loss_function == 'DSNTJSD':
-        assert with_gaussian == True
+        #assert with_gaussian == True
         criterion = DSNTJSDDoubleLossNew()
     elif loss_function == 'DSNTDIST':
         criterion = DSNTDistanceDoubleLossNew()
@@ -100,7 +100,7 @@ def train_net(net,
     train_loader = DataLoader(train, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True)
     
     if data_train_and_validation[1] != '':
-        val = BasicDataset(validate_imgs_dir, validate_masks_dir, img_scale, with_gaussian=with_gaussian)
+        val = BasicDataset(validate_imgs_dir, validate_masks_dir, img_scale)
         n_val = len(val)
         val_loader = DataLoader(val, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True, drop_last=False)
 
@@ -122,7 +122,7 @@ def train_net(net,
         assert n_channels == 3
         other_additions += '_CC'
     if transfer_learning_path != '':
-        other_additions += '_TF'
+        other_additions += f'_TF-{transfer_learning_path.rsplit("T-", 1)[-1].rsplit("_", 4)[0]}'
 
     run_name = f'{time_stamp}_{model_name}_{loss_function}_{optimizer_function}{other_additions}_{train_and_val}_{train_type}{epochs}_LR{learning_rate}_BS{true_batch_size}'
     writer = SummaryWriter(path.join(summary_writer_dir, run_name))
@@ -130,8 +130,10 @@ def train_net(net,
     logging.info(f'''Starting training:
         Device:              {device.type}
         Model:               {model_name}
-        Training data/size:  {data_train_and_validation[0]}  
-        Validation data/size:{data_train_and_validation[1]} 
+        Loss function:       {loss_function}
+        Optimizer:           {optimizer_function}
+        Training data:       {data_train_and_validation[0]}  
+        Validation data:     {data_train_and_validation[1]} 
         Epochs:              {epochs}
         Batch size:          {batch_size} x {batch_accumulation}
         Learning rate:       {learning_rate}
@@ -169,7 +171,7 @@ def train_net(net,
                     true_masks = masks_augmented_batch.to(device=device, dtype=torch.float32)
                 else:
                     imgs = imgs.to(device=device, dtype=torch.float32)
-                    mask_type = torch.float32  # if net.output_channels == 1 else torch.long
+                    true_masks = true_masks.to(device=device, dtype=torch.float32)
 
                 preds = net(imgs)
                 #preds = preds['out'] #torchvision syntax
@@ -242,9 +244,9 @@ def train_net(net,
         else:
             if lr_decay == True:
                 ''' maunually defined lr lowering '''
-                if epoch == 18:
+                if epoch == 20:
                     optimizer.param_groups[0]['lr'] *= 0.1
-                elif epoch == 23:
+                elif epoch == 28:
                     optimizer.param_groups[0]['lr'] *= 0.1
                 current_lr = optimizer.param_groups[0]['lr']
                 logging.info('Learning rate : {}'.format(current_lr))
@@ -266,11 +268,17 @@ def train_net(net,
             logging.info(f'Checkpoint {start_epoch + epoch + 1} saved !')
 
             logs_file = open(logs_pth, 'a')
-            logs_file.writelines(f'{run_name},{val_tot_mean},{val_tot_median},{val_diam_mean},{val_diam_median},{val_x_tot_mean},{val_y_tot_mean}\n')
+            if data_train_and_validation[1] == '':
+                logs_file.writelines(f'{run_name},NONE,NONE,NONE,NONE,NONE,NONE\n')
+            else:
+                logs_file.writelines(f'{run_name},{val_tot_mean},{val_tot_median},{val_diam_mean},{val_diam_median},{val_x_tot_mean},{val_y_tot_mean}\n')
+                ''' add hyperparams to summarywriter for filtering '''
+                writer.add_hparams({'model': model_name, 'optim': optimizer_function, 'loss_func': loss_function,
+                                    'bs': true_batch_size, 'lr': learning_rate, 'aug': with_augmentations},
+                                   {'hparams/val_tot_mean': val_tot_mean, 'hparams/val_diam_mean': val_diam_mean})
+
             logs_file.close()
 
-            ''' add hyperparams to summarywriter for filtering '''
-            writer.add_hparams({'model': model_name, 'optim': optimizer_function, 'loss_func': loss_function, 'bs': true_batch_size, 'lr': learning_rate, 'aug': with_augmentations}, {'hparams/val_tot_mean': val_tot_mean, 'hparams/val_diam_mean': val_diam_mean})
 
     writer.close()
 
@@ -288,7 +296,7 @@ if __name__ == '__main__':
     n_channels = 1
     
     training_parameters = dict(
-        model_name=['EFFIB2UNET', 'EFFIB2UNETIMGN'],
+        model_name=['EFFIB2UNET'],
         loss_function=['DSNT'],
         optimizer_function=['ADAM'],
         epochs=[30],
@@ -296,14 +304,14 @@ if __name__ == '__main__':
         batch_size=[8],
         batch_accumulation=[4],
         img_scale=[1],
-        with_augmentations=[False, True],
+        with_augmentations=[True],
         with_gaussian=[False],
         with_cc=[False],
         lr_decay=[True],
-        transfer_learning_path=[''],
+        transfer_learning_path=['checkpoints/Mar08_23-28-45_EFFIB2UNETIMGN_DSNT_ADAM_LR5_AL_T-CAMUS1800MVROT_HML_V-NONE_EP30_LR0.003_BS32.pth'],
         log_heatmaps=[False],
         data_train_and_validation=[
-            ['GE1408_HMLHMLAVA_K1', 'GE1408_HMHMAVA_K1'],
+
             ['GE1408_HMLHMLAVA_K2', 'GE1408_HMHMAVA_K2'],
             ['GE1408_HMLHMLAVA_K3', 'GE1408_HMHMAVA_K3'],
             ['GE1408_HMLHMLAVA_K4', 'GE1408_HMHMAVA_K4'],

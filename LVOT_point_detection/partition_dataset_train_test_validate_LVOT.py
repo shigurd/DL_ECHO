@@ -8,7 +8,7 @@ if __name__ == '__main__':
 
     ''' partition of complete dataset into test and train '''
 
-    data_name = 'AVA1314X5_HMLHML'
+    data_name = 'GE1424_HMLHML'
     test_percent = 0.15
     kfold = 1
 
@@ -20,7 +20,7 @@ if __name__ == '__main__':
     
     ''' partition of train into kfold train and validation '''
 
-    data_name2 = 'AVA1314X5_HMLHML'
+    data_name2 = 'GE1424_HMLHML'
     test_percent2 = 0.2
     kfold2 = 5
 

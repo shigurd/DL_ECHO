@@ -3,7 +3,7 @@ import os.path as path
 
 
 if __name__ == '__main__':
-    data_name = 'GE1423_HMLHMLAVA'
+    data_name = 'GE1408_HMLHMLAVA'
     img_folder = path.join('data', 'train', 'imgs', data_name)
     mask_folder = path.join('data', 'train', 'masks', data_name)
 

@@ -235,8 +235,8 @@ class DSNTJSDDoubleLossNew(nn.Module):
         y_size = input.shape[-2]
 
         # y_soft_argmax, x_soft_argmax = coordinate_map_sigmoid(y_size, x_size)
-        y_soft_argmax, x_soft_argmax = coordinate_map_tanh_range_half(y_size, x_size)
-        # y_soft_argmax, x_soft_argmax = coordinate_map_tanh_range_full(y_size, x_size)
+        #y_soft_argmax, x_soft_argmax = coordinate_map_tanh_range_half(y_size, x_size)
+        y_soft_argmax, x_soft_argmax = coordinate_map_tanh_range_full(y_size, x_size)
         y_soft_argmax = y_soft_argmax.cuda()
         x_soft_argmax = x_soft_argmax.cuda()
 
@@ -253,10 +253,10 @@ class DSNTJSDDoubleLossNew(nn.Module):
                 coord_argmax = torch.argmax(points[1]).detach()
                 # true_x_coord = ((coord_argmax % x_size + 1).float() / x_size).cuda()
                 # true_y_coord = ((coord_argmax // x_size + 1).float() / y_size).cuda()
-                true_x_coord = ((coord_argmax % x_size + 1 - x_size / 2).float() / x_size).cuda()
-                true_y_coord = ((coord_argmax // x_size + 1 - y_size / 2).float() / y_size).cuda()
-                # true_x_coord = (((coord_argmax % x_size + 1) * 2 - (x_size + 1)).float() / x_size).cuda()
-                # true_y_coord = (((coord_argmax // x_size + 1) * 2 - (y_size + 1)).float() / y_size).cuda()
+                #true_x_coord = ((coord_argmax % x_size + 1 - x_size / 2).float() / x_size).cuda()
+                #true_y_coord = ((coord_argmax // x_size + 1 - y_size / 2).float() / y_size).cuda()
+                true_x_coord = (((coord_argmax % x_size + 1) * 2 - (x_size + 1)).float() / x_size).cuda()
+                true_y_coord = (((coord_argmax // x_size + 1) * 2 - (y_size + 1)).float() / y_size).cuda()
 
                 ''' euclidian distance with DSNT, ED is naturally a loss since distance should be minimized '''
                 ed_loss = torch.sqrt((true_x_coord - pred_x_coord) ** 2 + (true_y_coord - pred_y_coord) ** 2)
@@ -366,8 +366,8 @@ class DSNTDistanceDoubleLossNew(nn.Module):
         y_size = input.shape[-2]
 
         # y_soft_argmax, x_soft_argmax = coordinate_map_sigmoid(y_size, x_size)
-        y_soft_argmax, x_soft_argmax = coordinate_map_tanh_range_half(y_size, x_size)
-        # y_soft_argmax, x_soft_argmax = coordinate_map_tanh_range_full(y_size, x_size)
+        #y_soft_argmax, x_soft_argmax = coordinate_map_tanh_range_half(y_size, x_size)
+        y_soft_argmax, x_soft_argmax = coordinate_map_tanh_range_full(y_size, x_size)
         y_soft_argmax = y_soft_argmax.cuda()
         x_soft_argmax = x_soft_argmax.cuda()
 
@@ -388,21 +388,15 @@ class DSNTDistanceDoubleLossNew(nn.Module):
                 coord_argmax = torch.argmax(points[1]).detach()
                 # true_x_coord = ((coord_argmax % x_size + 1).float() / x_size).cuda()
                 # true_y_coord = ((coord_argmax // x_size + 1).float() / y_size).cuda()
-                true_x_coord = ((coord_argmax % x_size + 1 - x_size / 2).float() / x_size).cuda()
-                true_y_coord = ((coord_argmax // x_size + 1 - y_size / 2).float() / y_size).cuda()
-                # true_x_coord = (((coord_argmax % x_size + 1) * 2 - (x_size + 1)).float() / x_size).cuda()
-                # true_y_coord = (((coord_argmax // x_size + 1) * 2 - (y_size + 1)).float() / y_size).cuda()
+                #true_x_coord = ((coord_argmax % x_size + 1 - x_size / 2).float() / x_size).cuda()
+                #true_y_coord = ((coord_argmax // x_size + 1 - y_size / 2).float() / y_size).cuda()
+                true_x_coord = (((coord_argmax % x_size + 1) * 2 - (x_size + 1)).float() / x_size).cuda()
+                true_y_coord = (((coord_argmax // x_size + 1) * 2 - (y_size + 1)).float() / y_size).cuda()
 
                 ''' euclidian distance with DSNT, ED is naturally a loss since distance should be minimized '''
                 ed_loss = torch.sqrt((true_x_coord - pred_x_coord) ** 2 + (true_y_coord - pred_y_coord) ** 2)
 
-                ''' option to add MSE to ED loss '''
-                mse_loss = nn.MSELoss()
-                pred_coords = torch.stack((pred_x_coord, pred_y_coord))
-                true_coords = torch.stack((true_x_coord, true_y_coord))
-                coordinate_mse = mse_loss(pred_coords, true_coords)
-
-                s += ed_loss + coordinate_mse
+                s += ed_loss
 
                 ''' add point to distance calculation tensor '''
                 pred_coords_stack = torch.stack((pred_x_coord, pred_y_coord))
@@ -484,7 +478,8 @@ class DSNTCosDoubleLossNew(nn.Module):
             true_vector = true_dist_list_array[0] - true_dist_list_array[1]
 
             ''' angle error between predicted and true vector '''
-            cos = torch.nn.CosineSimilarity(dim=1)
+            cos = torch.nn.CosineSimilarity(dim=0)
+
             cos_distance = 1 - cos(pred_vector, true_vector)
 
             s += cos_distance

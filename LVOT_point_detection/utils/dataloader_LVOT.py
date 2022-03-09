@@ -154,7 +154,7 @@ class BasicDataset(Dataset):
             f'Image {idx} and mask_i and mask_s should be the same size, but are img: {img.size} and mask_i: {mask_i.size} and mask_s: {mask_s.size}'
 
         if self.with_gaussian == True:
-            mask_i, mask_s = self.add_gaussian_to_masks(mask_i, mask_s, img)
+            mask_i, mask_s = self.add_gaussian_to_masks(mask_i, mask_s)
 
         img = self.preprocess(img, self.scale)
 

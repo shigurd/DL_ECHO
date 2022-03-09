@@ -5,7 +5,7 @@ from glob import glob
 
 if __name__ == '__main__':
 
-    dataset_name = 'GE1424X5_HMLHML'
+    dataset_name = 'GE1424_HMLHML'
     keyfile_QC_path = r'H:\ML_LVOT\backup_keyfile_and_duplicate\keyfile_GE1424_QC.csv'
     imgs_dir = path.join('datasets', 'imgs', dataset_name)
     masks_dir = path.join('datasets', 'masks', dataset_name)
@@ -28,7 +28,7 @@ if __name__ == '__main__':
                     ''' rename masks '''
                     masks_paths = glob(path.join(masks_dir, dicom_name) + '*')
 
-                    os.rename(masks_paths[0], path.join(masks_dir, f'{patient_id}_{measure_type}_{img_view}_{img_quality}_{gt_quality}_imask.png'))
-                    os.rename(masks_paths[1], path.join(masks_dir, f'{patient_id}_{measure_type}_{img_view}_{img_quality}_{gt_quality}_smask.png'))
+                    os.rename(masks_paths[0], path.join(masks_dir, f'{patient_id}_{measure_type}_{img_view}_I{img_quality}_L{gt_quality}_imask.png'))
+                    os.rename(masks_paths[1], path.join(masks_dir, f'{patient_id}_{measure_type}_{img_view}_I{img_quality}_L{gt_quality}_smask.png'))
 
                     break
