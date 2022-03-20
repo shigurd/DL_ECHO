@@ -74,7 +74,6 @@ def train_net(net,
     elif loss_function == 'IOUBCE':
         criterion = IoUSoftBCELoss()
 
-
     ''' to check if training is from scratch or transfer learning/checkpoint appending '''
     if transfer_learning_path != '':
         try:
@@ -120,7 +119,7 @@ def train_net(net,
         assert n_channels == 3
         other_additions += '_CC'
     if transfer_learning_path != '':
-        other_additions += '_TF'
+        other_additions += f'_TF-{transfer_learning_path.rsplit("T-", 1)[-1].rsplit("_", 4)[0]}'
 
     run_name = f'{time_stamp}_{model_name}_{loss_function}_{optimizer_function}{other_additions}_{train_and_val}_{train_type}{epochs}_LR{learning_rate}_BS{true_batch_size}'
     writer = SummaryWriter(path.join(summary_writer_dir, run_name))
@@ -258,19 +257,22 @@ def train_net(net,
                 'model_state_dict': net.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
                 'loss': loss
-                }, path.join(checkpoints_dir, f'{time_stamp}_{model_name}_{train_and_val}_{train_type}{epoch + 1}_LR{learning_rate}_BS{true_batch_size}_SCL{img_scale}.pth'))
+                }, path.join(checkpoints_dir, f'{run_name}.pth'))
             logging.info(f'Checkpoint {start_epoch + epoch + 1} saved !')
 
             logs_file = open(logs_pth, 'a')
-            logs_file.writelines(
-                f'{run_name},{validate_mean_dice},{validate_median_dice},{validate_mean_hd},{validate_median_hd}\n')
-            logs_file.close()
+            if data_train_and_validation[1] == '':
+                logs_file.writelines(f'{run_name},NONE,NONE,NONE,NONE\n')
+            else:
+                logs_file.writelines(
+                    f'{run_name},{validate_mean_dice},{validate_median_dice},{validate_mean_hd},{validate_median_hd}\n')
 
-            ''' add hyperparams to summarywriter for filtering '''
-            writer.add_hparams(
-                {'model': model_name, 'optim': optimizer_function, 'loss_func': loss_function, 'bs': true_batch_size,
-                 'lr': learning_rate, 'aug': with_augmentations},
-                {'hparams/val_mean_dice': validate_mean_dice, 'hparams/val_mean_hd': validate_mean_hd})
+                ''' add hyperparams to summarywriter for filtering '''
+                writer.add_hparams(
+                    {'model': model_name, 'optim': optimizer_function, 'loss_func': loss_function, 'bs': true_batch_size,
+                     'lr': learning_rate, 'aug': with_augmentations},
+                    {'hparams/val_mean_dice': validate_mean_dice, 'hparams/val_mean_hd': validate_mean_hd})
+            logs_file.close()
 
     writer.close()
 
@@ -288,13 +290,13 @@ if __name__ == '__main__':
     n_channels = 1
 
     training_parameters = dict(
-        model_name=['EFFIB2UNET', 'EFFIB1UNET', 'RES50UNET'],
+        model_name=['RES50UNETIMGN', 'EFFIB2UNETIMGN'],
         loss_function=['DICEBCE'],
-        optimizer_function=['ADAM', 'RMSP'],
+        optimizer_function=['ADAM'],
         epochs=[30],
-        learning_rate=[0.01, 0.005, 0.001, 0.0005],
+        learning_rate=[0.0005],
         batch_size=[8],
-        batch_accumulation=[1, 2, 4, 8],
+        batch_accumulation=[2],
         img_scale=[1],
         mid_systole_only=[True],
         with_augmentations=[True],
@@ -303,7 +305,7 @@ if __name__ == '__main__':
         transfer_learning_path=[''],
         log_heatmaps=[False],
         data_train_and_validation=[
-            ['RV141_HMLHML_K1', 'RV141_HMLHML_K1'],
+            ['RV141_HMLHMLLVFHALF', ''],
         ]
     )
     

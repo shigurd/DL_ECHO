@@ -7,14 +7,14 @@ from dicom_extraction_utils_GE.LV_mask_to_AFI_roi_unlimited_points import genera
 
 
 if __name__ == "__main__":
-    prediction_masks = 'Feb05_21-52-38_EFFIB1-LR5-DICBCE_AL_ADAM_T-CAMUS1800_HML_V-NONE_EP30_LR0.001_BS20_SCL1_OUT'
+    prediction_masks = 'Mar17_20-37-03_RES50UNETIMGN_DICEBCE_ADAM_LR5_AL_T-RV141_HMLHMLLVFHALF_V-NONE_EP30_LR0.0005_BS16_OUT'
 
-    keyfile_csv = r'H:\ML_LV\backup_keyfiles\keyfile_GE1965_QC_CRIDP.csv'
-    input_dcm_dir = r'H:\ML_LV\backup_dcm\GE2023_dcm'
-    input_masks_dir = path.join('predictions', 'strain', prediction_masks)
+    keyfile_csv = r'H:\RV_strain\keyfile_RV141\RV141_keyfile.csv'
+    input_dcm_dir = r'H:\ML_LV\backup_dcm\GE2023_crawler_output_processing\ML_LVROI_Basedata_unfiltered\ML-ROI_data_14_02_20_ECHOPAC_ufiltrert_rv_sax_etc'
+    input_masks_dir = path.join('predictions', 'abstract_to_dcm', prediction_masks)
 
-    output_dcm_original_dir = path.join('predictions_dicom', prediction_masks, 'original')
-    output_dcm_predicted_dir = path.join('predictions_dicom', prediction_masks, 'predicted')
+    output_dcm_original_dir = path.join('predictions_dicom', prediction_masks, 'raw')
+    output_dcm_predicted_dir = path.join('predictions_dicom', prediction_masks, 'dcm')
     os.mkdir(path.join('predictions_dicom', prediction_masks))
     os.mkdir(output_dcm_original_dir)
     os.mkdir(output_dcm_predicted_dir)

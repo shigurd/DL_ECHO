@@ -143,8 +143,8 @@ def endocard_epicard_to_tensor(mask_pil):
 if __name__ == "__main__":
     
     ''' define model name, prediction dataset and model parameters '''
-    model_file = f'Mar01_16-07-25_EFFIB1UNET-LR5-DICBCE_AL_IMGN_ADAM_T-LV715_flipped_V-RV146_EP30_LR0.001_BS20_SCL1.pth'
-    data_name = 'RV146'
+    model_file = f'Mar17_18-15-07_RES50UNET_DICEBCE_ADAM_LR5_AL_TF-LV715_HMLHMLF_V-NONE_T-RV141_HMLHML_V-NONE_TRANSFER-EP30+30_LR0.0005_BS16.pth'
+    data_name = 'RV141_HMLHML'
     n_channels = 1
     n_classes = 1
     scaling = 1
@@ -154,9 +154,9 @@ if __name__ == "__main__":
     compare_with_ground_truth = True
     convert_to_epicard_and_endocard = False
 
-    model_path = path.join('checkpoints', model_file)
-    dir_img = path.join('data', 'validate', 'imgs', data_name)
-    dir_mask = path.join('data', 'validate', 'masks', data_name)
+    model_path = path.join('checkpoints', 'abstract', model_file)
+    dir_img = path.join('data', 'test', 'imgs', data_name)
+    dir_mask = path.join('data', 'test', 'masks', data_name)
 
     ''' make output dir '''
     if compare_with_ground_truth == True:
@@ -173,8 +173,8 @@ if __name__ == "__main__":
     
     ''' define network settings '''
     #net = fcn_resnet50(pretrained=False, progress=True, in_channels=n_channels, num_classes=n_classes, aux_loss=None)
-    net = smp.Unet(encoder_name="efficientnet-b1", encoder_weights=None, in_channels=n_channels, classes=n_classes)
-    #net = smp.Unet(encoder_name="resnet50", encoder_weights=None, in_channels=n_channels, classes=n_classes)
+    #net = smp.Unet(encoder_name="efficientnet-b2", encoder_weights=None, in_channels=n_channels, classes=n_classes)
+    net = smp.Unet(encoder_name="resnet50", encoder_weights=None, in_channels=n_channels, classes=n_classes)
     #net = UNet(n_channels, n_classes, bilinear=False)
     #net = smp.Unet(encoder_name="se_resnext50_32x4d", encoder_weights=None, in_channels=n_channels, classes=n_classes)
 
@@ -231,6 +231,7 @@ if __name__ == "__main__":
             img_pil = Image.open(path.join(dir_img, fn))
             img_pil = img_pil.convert('RGB')
 
+
             ''' predict_tensor returns logits '''
             mask_tensor_predicted = predict_tensor(net=net,
                                img_pil=img_pil,
@@ -276,6 +277,12 @@ if __name__ == "__main__":
                 comparison_masks = pil_overlay_predicted_and_gt(mask_pil_true, mask_pil_predicted)
                 ''' plotting overlays between predicted masks and input image '''
                 #prediction_on_img = pil_overlay(mask_pil_true.convert('L'), img_pil)
+
+                if mid_systole == True:
+                    img_np = np.asarray(img_pil)
+                    img_np = img_np[:, :, 1]
+                    img_np = np.squeeze(img_np)
+                    img_pil = Image.fromarray(img_np)
 
                 img_with_comparison = concat_img(img_pil, comparison_masks)
                 img_with_comparison.save(path.join(predictions_output, f'{str("{:.4f}".format(dice_score).rsplit(".", 1)[1])}_{out_fn}')) #removes 0. from dice

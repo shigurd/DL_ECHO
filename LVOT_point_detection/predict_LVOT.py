@@ -237,7 +237,7 @@ def predict_cm_coords_and_diameter(file_id, pred_coord_list_pix, true_coord_list
         found = False
 
         for row in csv_reader:
-            dcm_id, exam_id, patient_id, measure_type, img_quality, gt_quality, img_view, x1_pix, y1_pix, x2_pix, y2_pix, x1_cm, y1_cm, x2_cm, y2_cm, true_diam_cm_csv, sc_param = row
+            patient_id, measure_type, img_quality, gt_quality, img_view, x1_pix, y1_pix, x2_pix, y2_pix, x1_cm, y1_cm, x2_cm, y2_cm, true_diam_cm_csv, sc_param = row
 
             sc_param = ast.literal_eval(sc_param)
 
@@ -254,6 +254,12 @@ def predict_cm_coords_and_diameter(file_id, pred_coord_list_pix, true_coord_list
                 s_ed_pix = calculate_lvot_diameter(pred_coord_list_pix[1][0], pred_coord_list_pix[1][1], true_coord_list_pix[1][0], true_coord_list_pix[1][1])
                 tot_ed_pix = i_ed_pix + s_ed_pix
 
+                ''' x and y diff from i and s points between true and pred in pix '''
+                i_x_diff_pix = pred_coord_list_pix[0][0] - true_coord_list_pix[0][0]
+                i_y_diff_pix = pred_coord_list_pix[0][1] - true_coord_list_pix[0][1]
+                s_x_diff_pix = pred_coord_list_pix[1][0] - true_coord_list_pix[1][0]
+                s_y_diff_pix = pred_coord_list_pix[1][1] - true_coord_list_pix[1][1]
+
                 ''' convert pixel to cm with scanconverted parameters '''
                 pred_coord_list_pix = np.array(pred_coord_list_pix)
                 pred_coords_cm = get_cm_coordinates(pred_coord_list_pix, sc_param)
@@ -265,10 +271,16 @@ def predict_cm_coords_and_diameter(file_id, pred_coord_list_pix, true_coord_list
                 true_diam_cm = calculate_lvot_diameter(true_coords_cm[0][0], true_coords_cm[0][1], true_coords_cm[1][0], true_coords_cm[1][1])
                 diff_diam_cm = pred_diam_cm - true_diam_cm
 
-                ''' calculate i_ed_pix and s_ed_pix '''
+                ''' calculate i_ed_cm and s_ed_cm '''
                 i_ed_cm = calculate_lvot_diameter(pred_coords_cm[0][0], pred_coords_cm[0][1], true_coords_cm[0][0], true_coords_cm[0][1])
                 s_ed_cm = calculate_lvot_diameter(pred_coords_cm[1][0], pred_coords_cm[1][1], true_coords_cm[1][0], true_coords_cm[1][1])
                 tot_ed_cm = i_ed_cm + s_ed_cm
+
+                ''' x and y diff from i and s points between true and pred in cm '''
+                i_x_diff_cm = pred_coords_cm[0][0] - true_coords_cm[0][0]
+                i_y_diff_cm = pred_coords_cm[0][1] - true_coords_cm[0][1]
+                s_x_diff_cm = pred_coords_cm[1][0] - true_coords_cm[1][0]
+                s_y_diff_cm = pred_coords_cm[1][1] - true_coords_cm[1][1]
 
                 #print('\nfrom csv true coords pix: ', x2_pix, y2_pix, x1_pix, y1_pix)
                 #print('from calculated true coords pix', true_coord_list_pix[0][0], true_coord_list_pix[0][1], true_coord_list_pix[1][0], true_coord_list_pix[1][1])
@@ -286,11 +298,12 @@ def predict_cm_coords_and_diameter(file_id, pred_coord_list_pix, true_coord_list
                 #print(f'calculated lvot diam pix: {pred_diam_pix}')
                 #print(f'calculated lvot diam diff pix: {diff_diam_pix}')
 
-                return pred_diam_cm, true_diam_cm, diff_diam_cm, i_ed_cm, s_ed_cm, tot_ed_cm, pred_diam_pix, true_diam_pix, diff_diam_pix, i_ed_pix, s_ed_pix, tot_ed_pix
+                return pred_diam_cm, true_diam_cm, diff_diam_cm, i_ed_cm, s_ed_cm, tot_ed_cm, i_x_diff_cm, i_y_diff_cm, s_x_diff_cm, s_y_diff_cm, pred_diam_pix, true_diam_pix, diff_diam_pix, i_ed_pix, s_ed_pix, tot_ed_pix, i_x_diff_pix, i_y_diff_pix, s_x_diff_pix, s_y_diff_pix
 
         if found == False:
             print(file_id, 'NOT FOUND')
-            return 'nan', 'nan'
+            return 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan'
+
 
 def get_output_filenames(in_file):
     in_files = in_file
@@ -305,9 +318,15 @@ def get_output_filenames(in_file):
 
 def add_points_to_lvot_plot(true_coordinate_list, pred_coordinate_list, canvas_np, norm_s_x, norm_s_y, lvot_size_pix=100):
     pred_i_coordinate_scaled, pred_s_coordinate_scaled = calculate_scaled_points(true_coordinate_list, pred_coordinate_list, lvot_size_pix, norm_s_x, norm_s_y)
+    try:
+        canvas_np[pred_s_coordinate_scaled[1], pred_s_coordinate_scaled[0], 0] = 255
+    except:
+        print('superior plot failed, coord', f'({pred_s_coordinate_scaled[0]},{pred_s_coordinate_scaled[1]})', 'out of bounds')
 
-    canvas_np[pred_s_coordinate_scaled[1], pred_s_coordinate_scaled[0], 0] = 255
-    canvas_np[pred_i_coordinate_scaled[1], pred_i_coordinate_scaled[0], 0] = 255
+    try:
+        canvas_np[pred_i_coordinate_scaled[1], pred_i_coordinate_scaled[0], 0] = 255
+    except:
+        print('inferior plot failed, coord', f'({pred_i_coordinate_scaled[0]},{pred_i_coordinate_scaled[1]})', 'out of bounds')
 
     return canvas_np
 
@@ -316,20 +335,20 @@ if __name__ == "__main__":
 
     ''' define model name, prediction dataset and model parameters '''
     #keyfile_csv = r'H:/ML_LVOT/backup_keyfile_and_duplicate/keyfile_GE1424_QC.csv'
-    keyfile_csv = ''
-    model_file = 'Mar08_18-42-46_EFFIB2UNETIMGN_DSNT_ADAM_LR5_AL_T-GE1408_HMLHML_K1_V-GE1408_HMHM_K1_EP30_LR0.003_BS32.pth'
-    data_name = 'GE1408_HMHM_K1'
+    keyfile_csv = 'keyfile_GE1424_QC_no_dcm.csv'
+    model_file = 'Mar15_23-52-04_EFFIB2UNET_DSNT_ADAM_LR5_T-GE1408_HMLHMLAVA_V-NONE_EP30_LR0.003_BS32.pth'
+    data_name = 'GE1408_HMLHMLAVA'
     n_channels = 1
     n_classes = 2
     scaling = 1
     compare_with_ground_truth = True
     output_with_heatmap = True
     normalized_lvot_plot = True
-    lvot_size_pix = 65
+    lvot_size_pix = 60
 
-    model_path = path.join('checkpoints', model_file)
-    dir_img = path.join('data', 'validate', 'imgs', data_name)
-    dir_mask = path.join('data', 'validate', 'masks', data_name)
+    model_path = path.join('checkpoints', 'final', model_file)
+    dir_img = path.join('data', 'test', 'imgs', data_name)
+    dir_mask = path.join('data', 'test', 'masks', data_name)
 
     ''' make output dir '''
     if compare_with_ground_truth == True:
@@ -346,6 +365,7 @@ if __name__ == "__main__":
 
     ''' define network settings '''
     #net = fcn_resnet50(pretrained=False, progress=True, in_channels=n_channels, num_classes=n_classes, aux_loss=None)
+    #net = net = UNet(n_channels, n_classes, bilinear=True)
     #net = smp.Unet(encoder_name="resnet50", encoder_weights=None, in_channels=n_channels, classes=n_classes)
     net = smp.Unet(encoder_name="efficientnet-b2", encoder_weights=None, in_channels=n_channels, classes=n_classes)
 
@@ -362,7 +382,7 @@ if __name__ == "__main__":
 
     if compare_with_ground_truth == True:
         file = open(path.join(predictions_output, f'COORD_DATA.txt'), 'w+')
-        file.write('file_name,measure_type,view_type,img_quality,gt_quality,pred_diam_cm,true_diam_cm,diff_diam_cm,i_ed_cm,s_ed_cm,tot_ed_cm,pred_diam_pix,true_diam_pix,diff_diam_pix,i_ed_pix,s_ed_pix,tot_ed_pix\n')
+        file.write('file_name,measure_type,view_type,img_quality,gt_quality,pred_diam_cm,true_diam_cm,diff_diam_cm,i_ed_cm,s_ed_cm,tot_ed_cm,i_x_diff_cm,i_y_diff_cm,s_x_diff_cm,s_y_diff_cm,pred_diam_pix,true_diam_pix,diff_diam_pix,i_ed_pix,s_ed_pix,tot_ed_pix,i_x_diff_pix,i_y_diff_pix,s_x_diff_pix,s_y_diff_pix\n')
         file1 = open(path.join(predictions_output, 'MEAN_MEDIAN_SCORES.txt'), 'w+')
 
         ''' all values here are in absolute values '''
@@ -377,7 +397,9 @@ if __name__ == "__main__":
 
     if normalized_lvot_plot == True:
         height, width, color = (256, 256, 3)
-        lvot_plot_np = np.zeros((height, width, color))
+        lvot_plot_all_np = np.zeros((height, width, color))
+        lvot_plot_plax_np = np.zeros((height, width, color))
+        lvot_plot_zoom_np = np.zeros((height, width, color))
 
         ''' reference normalized s and i coordinates '''
         norm_s_y = int((height - 1 - lvot_size_pix) / 2)
@@ -386,8 +408,12 @@ if __name__ == "__main__":
         norm_i_x = norm_s_x
 
         ''' draw reference cross '''
-        lvot_plot_np = draw_cross(lvot_plot_np, norm_s_x, norm_s_y, 4, color=[0, 255, 0])
-        lvot_plot_np = draw_cross(lvot_plot_np, norm_i_x, norm_i_y, 4, color=[0, 255, 0])
+        lvot_plot_all_np = draw_cross(lvot_plot_all_np, norm_s_x, norm_s_y, 4, color=[0, 255, 0])
+        lvot_plot_all_np = draw_cross(lvot_plot_all_np, norm_i_x, norm_i_y, 4, color=[0, 255, 0])
+        lvot_plot_plax_np = draw_cross(lvot_plot_plax_np, norm_s_x, norm_s_y, 4, color=[0, 255, 0])
+        lvot_plot_plax_np = draw_cross(lvot_plot_plax_np, norm_i_x, norm_i_y, 4, color=[0, 255, 0])
+        lvot_plot_zoom_np = draw_cross(lvot_plot_zoom_np, norm_s_x, norm_s_y, 4, color=[0, 255, 0])
+        lvot_plot_zoom_np = draw_cross(lvot_plot_zoom_np, norm_i_x, norm_i_y, 4, color=[0, 255, 0])
 
 
     with tqdm(total=len(input_files), desc='Predictions', unit='imgs', leave=False) as pbar:
@@ -448,7 +474,7 @@ if __name__ == "__main__":
 
                 ''' converting pixel lvot predicitons to cm '''
                 if keyfile_csv != '':
-                    pred_diam_cm, true_diam_cm, diff_diam_cm, i_ed_cm, s_ed_cm, tot_ed_cm, pred_diam_pix, true_diam_pix, diff_diam_pix, i_ed_pix, s_ed_pix, tot_ed_pix = predict_cm_coords_and_diameter(fn, pred_coordinate_list, true_coordinate_list, keyfile_csv)
+                    pred_diam_cm, true_diam_cm, diff_diam_cm, i_ed_cm, s_ed_cm, tot_ed_cm, i_x_diff_cm, i_y_diff_cm, s_x_diff_cm, s_y_diff_cm, pred_diam_pix, true_diam_pix, diff_diam_pix, i_ed_pix, s_ed_pix, tot_ed_pix, i_x_diff_pix, i_y_diff_pix, s_x_diff_pix, s_y_diff_pix = predict_cm_coords_and_diameter(fn, pred_coordinate_list, true_coordinate_list, keyfile_csv)
 
                     ''' calculate total and median for lvot diameter cm '''
                     absdiff_diam_cm = abs(diff_diam_cm)
@@ -461,7 +487,7 @@ if __name__ == "__main__":
                     absdiff_diam_cm = '{:.4f}'.format(absdiff_diam_cm)
                     pred_diam_cm = '{:.4f}'.format(pred_diam_cm)
                     patient_id, measure_type, view_type, img_quality, gt_quality = fn.rsplit('.', 1)[0].rsplit('_', 4)
-                    file.write(f'{fn},{measure_type},{view_type},{img_quality},{gt_quality},{pred_diam_cm},{true_diam_cm},{diff_diam_cm},{i_ed_cm},{s_ed_cm},{tot_ed_cm},{pred_diam_pix},{true_diam_pix},{diff_diam_pix},{i_ed_pix},{s_ed_pix},{tot_ed_pix}\n')
+                    file.write(f'{fn},{measure_type},{view_type},{img_quality},{gt_quality},{pred_diam_cm},{true_diam_cm},{diff_diam_cm},{i_ed_cm},{s_ed_cm},{tot_ed_cm},{i_x_diff_cm},{i_y_diff_cm},{s_x_diff_cm},{s_y_diff_cm},{pred_diam_pix},{true_diam_pix},{diff_diam_pix},{i_ed_pix},{s_ed_pix},{tot_ed_pix},{i_x_diff_pix},{i_y_diff_pix},{s_x_diff_pix},{s_y_diff_pix}\n')
 
                 ''' plotting and saving coordinate overlay on original image with gt '''
                 pred_plot = predict_plot_on_image(img_pil, pred_coordinate_list, true_coordinate_list, plot_gt=compare_with_ground_truth)
@@ -473,7 +499,12 @@ if __name__ == "__main__":
                 pred_plot.save(path.join(predictions_output, f'{str(absdiff_diam_pix)}_{out_fn}'))
 
                 if normalized_lvot_plot == True:
-                    lvot_plot_np = add_points_to_lvot_plot(true_coordinate_list, pred_coordinate_list, lvot_plot_np, norm_s_x, norm_s_y, lvot_size_pix=lvot_size_pix)
+                    lvot_plot_all_np = add_points_to_lvot_plot(true_coordinate_list, pred_coordinate_list, lvot_plot_all_np, norm_s_x, norm_s_y, lvot_size_pix=lvot_size_pix)
+
+                    if fn.rsplit('_', 3)[1] == 'PLAX':
+                        lvot_plot_plax_np = add_points_to_lvot_plot(true_coordinate_list, pred_coordinate_list, lvot_plot_plax_np, norm_s_x, norm_s_y, lvot_size_pix=lvot_size_pix)
+                    elif fn.rsplit('_', 3)[1] == 'ZOOM':
+                        lvot_plot_zoom_np = add_points_to_lvot_plot(true_coordinate_list, pred_coordinate_list, lvot_plot_zoom_np, norm_s_x, norm_s_y, lvot_size_pix=lvot_size_pix)
 
             else:
                 ''' just save coordinate overlay on original image '''
@@ -511,14 +542,18 @@ if __name__ == "__main__":
                 median_lvot_diam_absdiff_cm = np.median(median_lvot_diam_absdiff_cm)
                 avg_lvot_diam_absdiff_cm = '{:.4f}'.format(avg_lvot_diam_absdiff_cm)
                 median_lvot_diam_absdiff_cm = '{:.4f}'.format(median_lvot_diam_absdiff_cm)
-                file1.write(f'AVG tot_ED cm: {avg_lvot_diam_absdiff_cm}\n')
+                file1.write(f'AVG LVOTd cm: {avg_lvot_diam_absdiff_cm}\n')
                 file1.write(f'MEDIAN LVOTd cm: {median_lvot_diam_absdiff_cm}\n')
 
             file1.close()
 
             if normalized_lvot_plot == True:
-                lvot_plot_pil = Image.fromarray(lvot_plot_np.astype(np.uint8))
-                lvot_plot_pil.save(path.join(predictions_output, 'LVOT_testdata_plot_normalized.png'))
+                lvot_plot_all_pil = Image.fromarray(lvot_plot_all_np.astype(np.uint8))
+                lvot_plot_all_pil.save(path.join(predictions_output, 'LVOT_plot_normalized_all.png'))
+                lvot_plot_plax_pil = Image.fromarray(lvot_plot_plax_np.astype(np.uint8))
+                lvot_plot_plax_pil.save(path.join(predictions_output, 'LVOT_plot_normalized_plax.png'))
+                lvot_plot_zoom_pil = Image.fromarray(lvot_plot_zoom_np.astype(np.uint8))
+                lvot_plot_zoom_pil.save(path.join(predictions_output, 'LVOT_plot_normalized_zoom.png'))
 
 
 

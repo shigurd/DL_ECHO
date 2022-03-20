@@ -8,11 +8,11 @@ if __name__ == '__main__':
     ''' remove tags from train folders '''
 
     #data_names = ['CAMUS1800_HML_K1', 'CAMUS1800_HML_K2', 'CAMUS1800_HML_K3', 'CAMUS1800_HML_K4', 'CAMUS1800_HML_K5']
-    #data_names = ['GE1956_HMHM_K1', 'GE1956_HMHM_K2', 'GE1956_HMHM_K3', 'GE1956_HMHM_K4', 'GE1956_HMHM_K5']
-    data_names = ['GE1956_HMLHML']
-    is_kfold = False
-    tags_to_remove = ['CLINICAL']
-    new_data_name = 'HMLHMLRES'
+    data_names = ['RV141_HMLHML_K1', 'RV141_HMLHML_K2', 'RV141_HMLHML_K3', 'RV141_HMLHML_K4', 'RV141_HMLHML_K5']
+    #data_names = ['GE1956_HMLHML']
+    is_kfold = True
+    tags_to_remove = ['ILOW', 'MLOW']
+    new_data_name = 'HMHM'
 
     input_dir = path.join('data', 'train')
     output_dir = path.join('data', 'train')

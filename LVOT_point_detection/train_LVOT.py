@@ -100,7 +100,7 @@ def train_net(net,
     train_loader = DataLoader(train, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True)
     
     if data_train_and_validation[1] != '':
-        val = BasicDataset(validate_imgs_dir, validate_masks_dir, img_scale)
+        val = BasicDataset(validate_imgs_dir, validate_masks_dir, img_scale, with_cc=with_cc)
         n_val = len(val)
         val_loader = DataLoader(val, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True, drop_last=False)
 
@@ -243,13 +243,14 @@ def train_net(net,
                 writer.add_images('masks/pred', preds_heatmap, global_step)
         else:
             if lr_decay == True:
-                ''' maunually defined lr lowering '''
-                if epoch == 20:
-                    optimizer.param_groups[0]['lr'] *= 0.1
-                elif epoch == 28:
-                    optimizer.param_groups[0]['lr'] *= 0.1
-                current_lr = optimizer.param_groups[0]['lr']
-                logging.info('Learning rate : {}'.format(current_lr))
+                if true_batch_size * global_step >= 7000:
+                    ''' maunually defined lr lowering '''
+                    if epoch == 20:
+                        optimizer.param_groups[0]['lr'] *= 0.1
+                    elif epoch == 28:
+                        optimizer.param_groups[0]['lr'] *= 0.1
+                    current_lr = optimizer.param_groups[0]['lr']
+                    logging.info('Learning rate : {}'.format(current_lr))
 
         try:
             os.mkdir(checkpoints_dir)
@@ -304,18 +305,18 @@ if __name__ == '__main__':
         batch_size=[8],
         batch_accumulation=[4],
         img_scale=[1],
-        with_augmentations=[True],
+        with_augmentations=[False],
         with_gaussian=[False],
         with_cc=[False],
         lr_decay=[True],
-        transfer_learning_path=['checkpoints/Mar08_23-28-45_EFFIB2UNETIMGN_DSNT_ADAM_LR5_AL_T-CAMUS1800MVROT_HML_V-NONE_EP30_LR0.003_BS32.pth'],
+        transfer_learning_path=[''],
         log_heatmaps=[False],
         data_train_and_validation=[
-
-            ['GE1408_HMLHMLAVA_K2', 'GE1408_HMHMAVA_K2'],
-            ['GE1408_HMLHMLAVA_K3', 'GE1408_HMHMAVA_K3'],
-            ['GE1408_HMLHMLAVA_K4', 'GE1408_HMHMAVA_K4'],
-            ['GE1408_HMLHMLAVA_K5', 'GE1408_HMHMAVA_K5']
+            ['GE1408_HMLHMLAVA100', ''],
+            ['GE1408_HMLHMLAVA200', ''],
+            ['GE1408_HMLHMLAVA300', ''],
+            ['GE1408_HMLHMLAVA400', ''],
+            ['GE1408_HMLHMLAVA', '']
         ]
     )
     
@@ -345,7 +346,7 @@ if __name__ == '__main__':
         elif model_name == 'RES50UNETIMGN':
             net = smp.Unet(encoder_name="resnet50", encoder_weights='imagenet', in_channels=n_channels, classes=n_classes)
         elif model_name == 'UNET':
-            net = UNet(n_channels, n_classes, bilinear=False)
+            net = UNet(n_channels, n_classes, bilinear=True)
         elif model_name == 'RES50FCN':
             net = fcn_resnet50(pretrained=False, progress=True, in_channels=n_channels, num_classes=n_classes, aux_loss=None)
         elif model_name == 'RES50FCNCOCO':
