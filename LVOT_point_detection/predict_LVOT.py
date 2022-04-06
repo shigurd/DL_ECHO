@@ -11,10 +11,11 @@ from tqdm import tqdm
 import math
 import csv
 import ast
+import matplotlib.pyplot as plt
 
 from utils.dataloader_LVOT import BasicDataset
 from utils.point_losses_LVOT import PixelDSNTDistanceDoublePredict
-from utils.plot_normalized_diameters_LVOT import calculate_scaled_points
+from utils.plot_normalized_diameters_LVOT import calculate_scaled_points, calculate_lvot_angle_deviation, plot_point_and_lines_to_canvas
 
 sys.path.insert(0, '..')
 from networks.resnet50_torchvision import fcn_resnet50, fcn_resnet101, deeplabv3_resnet50, deeplabv3_resnet101
@@ -302,7 +303,7 @@ def predict_cm_coords_and_diameter(file_id, pred_coord_list_pix, true_coord_list
 
         if found == False:
             print(file_id, 'NOT FOUND')
-            return 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan'
+            return 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan', 'nan'
 
 
 def get_output_filenames(in_file):
@@ -336,7 +337,7 @@ if __name__ == "__main__":
     ''' define model name, prediction dataset and model parameters '''
     #keyfile_csv = r'H:/ML_LVOT/backup_keyfile_and_duplicate/keyfile_GE1424_QC.csv'
     keyfile_csv = 'keyfile_GE1424_QC_no_dcm.csv'
-    model_file = 'Mar15_23-52-04_EFFIB2UNET_DSNT_ADAM_LR5_T-GE1408_HMLHMLAVA_V-NONE_EP30_LR0.003_BS32.pth'
+    model_file = 'Mar11_14-43-45_EFFIB2UNETIMGN_DSNT_ADAM_LR5_AL_T-GE1408_HMLHMLAVA_V-NONE_EP30_LR0.003_BS32.pth'
     data_name = 'GE1408_HMLHMLAVA'
     n_channels = 1
     n_classes = 2
@@ -382,18 +383,22 @@ if __name__ == "__main__":
 
     if compare_with_ground_truth == True:
         file = open(path.join(predictions_output, f'COORD_DATA.txt'), 'w+')
-        file.write('file_name,measure_type,view_type,img_quality,gt_quality,pred_diam_cm,true_diam_cm,diff_diam_cm,i_ed_cm,s_ed_cm,tot_ed_cm,i_x_diff_cm,i_y_diff_cm,s_x_diff_cm,s_y_diff_cm,pred_diam_pix,true_diam_pix,diff_diam_pix,i_ed_pix,s_ed_pix,tot_ed_pix,i_x_diff_pix,i_y_diff_pix,s_x_diff_pix,s_y_diff_pix\n')
+        file.write('file_name,measure_type,view_type,img_quality,gt_quality,pred_diam_cm,true_diam_cm,diff_diam_cm,i_ed_cm,s_ed_cm,tot_ed_cm,i_x_diff_cm,i_y_diff_cm,s_x_diff_cm,s_y_diff_cm,pred_diam_pix,true_diam_pix,diff_diam_pix,i_ed_pix,s_ed_pix,tot_ed_pix,i_x_diff_pix,i_y_diff_pix,s_x_diff_pix,s_y_diff_pix,lvot_angle_deviation_deg\n')
         file1 = open(path.join(predictions_output, 'MEAN_MEDIAN_SCORES.txt'), 'w+')
 
         ''' all values here are in absolute values '''
         median_lvot_diam_absdiff_pix = np.array([])
         median_lvot_diam_absdiff_cm = np.array([])
         median_tot_ed_pix = np.array([])
+        median_tot_ed_cm = np.array([])
+        median_lvot_angle_deviation_deg = np.array([])
         total_i_ed_pix = 0
         total_s_ed_pix = 0
         total_sum_ed_pix = 0
+        total_sum_ed_cm = 0
         total_lvot_diam_absdiff_pix = 0
         total_lvot_diam_absdiff_cm = 0
+        total_lvot_angle_deviation_deg = 0
 
     if normalized_lvot_plot == True:
         height, width, color = (256, 256, 3)
@@ -415,6 +420,12 @@ if __name__ == "__main__":
         lvot_plot_zoom_np = draw_cross(lvot_plot_zoom_np, norm_s_x, norm_s_y, 4, color=[0, 255, 0])
         lvot_plot_zoom_np = draw_cross(lvot_plot_zoom_np, norm_i_x, norm_i_y, 4, color=[0, 255, 0])
 
+        ''' matplotlib connected points canvas init '''
+        dpi = 96
+        plt.figure(figsize=(height / dpi, width / dpi), dpi=dpi)
+        plt.ylim([0, height - 1])
+        plt.xlim([0, width - 1])
+        plt.gca().set_aspect('equal')
 
     with tqdm(total=len(input_files), desc='Predictions', unit='imgs', leave=False) as pbar:
 
@@ -463,6 +474,12 @@ if __name__ == "__main__":
                 pred_coordinate_list = loss_list_tensor[4]
                 true_coordinate_list = loss_list_tensor[5]
 
+                ''' calculate lvot angle deviation '''
+                lvot_angle_deviation_deg = calculate_lvot_angle_deviation(true_coordinate_list, pred_coordinate_list)
+                total_lvot_angle_deviation_deg += lvot_angle_deviation_deg
+
+                median_lvot_angle_deviation_deg = np.append(median_lvot_angle_deviation_deg, lvot_angle_deviation_deg)
+
                 ''' calculate inferior ED, superior ED, summed ED, summed absolute lvot diameter and median absolute lvot diameter in pixels '''
                 total_i_ed_pix += ed_i_pix
                 total_s_ed_pix += ed_s_pix
@@ -472,6 +489,8 @@ if __name__ == "__main__":
                 median_tot_ed_pix = np.append(median_tot_ed_pix, ed_tot_pix)
                 median_lvot_diam_absdiff_pix = np.append(median_lvot_diam_absdiff_pix, absdiff_diam_pix)
 
+
+
                 ''' converting pixel lvot predicitons to cm '''
                 if keyfile_csv != '':
                     pred_diam_cm, true_diam_cm, diff_diam_cm, i_ed_cm, s_ed_cm, tot_ed_cm, i_x_diff_cm, i_y_diff_cm, s_x_diff_cm, s_y_diff_cm, pred_diam_pix, true_diam_pix, diff_diam_pix, i_ed_pix, s_ed_pix, tot_ed_pix, i_x_diff_pix, i_y_diff_pix, s_x_diff_pix, s_y_diff_pix = predict_cm_coords_and_diameter(fn, pred_coordinate_list, true_coordinate_list, keyfile_csv)
@@ -480,6 +499,8 @@ if __name__ == "__main__":
                     absdiff_diam_cm = abs(diff_diam_cm)
                     total_lvot_diam_absdiff_cm += absdiff_diam_cm
                     median_lvot_diam_absdiff_cm = np.append(median_lvot_diam_absdiff_cm, absdiff_diam_cm)
+                    total_sum_ed_cm += tot_ed_cm
+                    median_tot_ed_cm = np.append(median_tot_ed_cm, tot_ed_cm)
 
                     ''' log the data '''
                     diff_diam_pix = '{:.4f}'.format(diff_diam_pix)
@@ -487,7 +508,7 @@ if __name__ == "__main__":
                     absdiff_diam_cm = '{:.4f}'.format(absdiff_diam_cm)
                     pred_diam_cm = '{:.4f}'.format(pred_diam_cm)
                     patient_id, measure_type, view_type, img_quality, gt_quality = fn.rsplit('.', 1)[0].rsplit('_', 4)
-                    file.write(f'{fn},{measure_type},{view_type},{img_quality},{gt_quality},{pred_diam_cm},{true_diam_cm},{diff_diam_cm},{i_ed_cm},{s_ed_cm},{tot_ed_cm},{i_x_diff_cm},{i_y_diff_cm},{s_x_diff_cm},{s_y_diff_cm},{pred_diam_pix},{true_diam_pix},{diff_diam_pix},{i_ed_pix},{s_ed_pix},{tot_ed_pix},{i_x_diff_pix},{i_y_diff_pix},{s_x_diff_pix},{s_y_diff_pix}\n')
+                    file.write(f'{fn},{measure_type},{view_type},{img_quality},{gt_quality},{pred_diam_cm},{true_diam_cm},{diff_diam_cm},{i_ed_cm},{s_ed_cm},{tot_ed_cm},{i_x_diff_cm},{i_y_diff_cm},{s_x_diff_cm},{s_y_diff_cm},{pred_diam_pix},{true_diam_pix},{diff_diam_pix},{i_ed_pix},{s_ed_pix},{tot_ed_pix},{i_x_diff_pix},{i_y_diff_pix},{s_x_diff_pix},{s_y_diff_pix},{lvot_angle_deviation_deg}\n')
 
                 ''' plotting and saving coordinate overlay on original image with gt '''
                 pred_plot = predict_plot_on_image(img_pil, pred_coordinate_list, true_coordinate_list, plot_gt=compare_with_ground_truth)
@@ -506,6 +527,10 @@ if __name__ == "__main__":
                     elif fn.rsplit('_', 3)[1] == 'ZOOM':
                         lvot_plot_zoom_np = add_points_to_lvot_plot(true_coordinate_list, pred_coordinate_list, lvot_plot_zoom_np, norm_s_x, norm_s_y, lvot_size_pix=lvot_size_pix)
 
+                    ''' matplotlib pred points and lines '''
+                    pred_i_coordinate_scaled, pred_s_coordinate_scaled = calculate_scaled_points(true_coordinate_list, pred_coordinate_list, lvot_size_pix, norm_s_x, norm_s_y)
+                    plot_point_and_lines_to_canvas([pred_i_coordinate_scaled, pred_s_coordinate_scaled], point_cfg='r,', line_cfg='r-')
+
             else:
                 ''' just save coordinate overlay on original image '''
                 pred_plot = predict_plot_on_image(img_pil, pred_coordinate_list, true_coordinate_list, plot_gt=compare_with_ground_truth)
@@ -520,30 +545,43 @@ if __name__ == "__main__":
             avg_s_ed_pix = total_s_ed_pix / (i + 1)
             avg_sum_ed_pix = total_sum_ed_pix / (i + 1)
             avg_lvot_diam_absdiff_pix = total_lvot_diam_absdiff_pix / (i + 1)
+            avg_lvot_angle_deviation_deg = total_lvot_angle_deviation_deg / (i + 1)
             median_tot_ed_pix = np.median(median_tot_ed_pix)
             median_lvot_diam_absdiff_pix = np.median(median_lvot_diam_absdiff_pix)
+            median_lvot_angle_deviation_deg = np.median(median_lvot_angle_deviation_deg)
 
             avg_i_ed_pix = '{:.4f}'.format(avg_i_ed_pix)
             avg_s_ed_pix = '{:.4f}'.format(avg_s_ed_pix)
             avg_sum_ed_pix = '{:.4f}'.format(avg_sum_ed_pix)
             avg_lvot_diam_absdiff_pix = '{:.4f}'.format(avg_lvot_diam_absdiff_pix)
+            avg_lvot_angle_deviation_deg = '{:.4f}'.format(avg_lvot_angle_deviation_deg)
             median_tot_ed_pix = '{:.4f}'.format(median_tot_ed_pix)
             median_lvot_diam_absdiff_pix = '{:.4f}'.format(median_lvot_diam_absdiff_pix)
+            median_lvot_angle_deviation_deg = '{:.4f}'.format(median_lvot_angle_deviation_deg)
 
             file1.write(f'AVG i_ED pix: {avg_i_ed_pix}\n')
             file1.write(f'AVG s_ED pix: {avg_s_ed_pix}\n')
             file1.write(f'AVG tot_ED pix: {avg_sum_ed_pix}\n')
             file1.write(f'AVG LVOTd pix: {avg_lvot_diam_absdiff_pix}\n')
+            file1.write(f'AVG LVOTd angle deviation deg: {avg_lvot_angle_deviation_deg}\n')
             file1.write(f'MEDIAN tot_ED pix: {median_tot_ed_pix}\n')
-            file1.write(f'MEDIAN LVOTd pix: {median_lvot_diam_absdiff_pix}\n\n')
+            file1.write(f'MEDIAN LVOTd pix: {median_lvot_diam_absdiff_pix}\n')
+            file1.write(f'MEDIAN LVOTd angle deviation deg: {median_lvot_angle_deviation_deg}\n\n')
 
             if keyfile_csv != '':
                 avg_lvot_diam_absdiff_cm = total_lvot_diam_absdiff_cm / (i + 1)
                 median_lvot_diam_absdiff_cm = np.median(median_lvot_diam_absdiff_cm)
+                avg_total_ed_cm = total_sum_ed_cm / (i + 1)
+                median_total_ed_cm = np.median(median_tot_ed_cm)
                 avg_lvot_diam_absdiff_cm = '{:.4f}'.format(avg_lvot_diam_absdiff_cm)
                 median_lvot_diam_absdiff_cm = '{:.4f}'.format(median_lvot_diam_absdiff_cm)
+                avg_total_ed_cm = '{:.4f}'.format(avg_total_ed_cm)
+                median_total_ed_cm = '{:.4f}'.format(median_total_ed_cm)
+
                 file1.write(f'AVG LVOTd cm: {avg_lvot_diam_absdiff_cm}\n')
                 file1.write(f'MEDIAN LVOTd cm: {median_lvot_diam_absdiff_cm}\n')
+                file1.write(f'AVG tot ED cm: {avg_total_ed_cm}\n')
+                file1.write(f'MEDIAN tot ED cm: {median_total_ed_cm}\n')
 
             file1.close()
 
@@ -554,6 +592,12 @@ if __name__ == "__main__":
                 lvot_plot_plax_pil.save(path.join(predictions_output, 'LVOT_plot_normalized_plax.png'))
                 lvot_plot_zoom_pil = Image.fromarray(lvot_plot_zoom_np.astype(np.uint8))
                 lvot_plot_zoom_pil.save(path.join(predictions_output, 'LVOT_plot_normalized_zoom.png'))
+
+                ''' matplotlib gt points and line '''
+                plot_point_and_lines_to_canvas([[norm_i_x, norm_i_y], [norm_s_x, norm_s_y]], point_cfg='g+', line_cfg='g--')
+
+                ''' show matplotlib connected plot '''
+                plt.show()
 
 
 
