@@ -6,14 +6,17 @@ import shutil
 import glob
 import csv
 
-def patient_list_from_folder(folder_pth):
-    patient_list = []
+def patient_dict_from_folder(folder_pth):
+    patient_dict = dict()
+
     for i in os.listdir(folder_pth):
         patient = i.split('_', 1)[0]
-        if patient not in patient_list:
-            patient_list.append(patient)
+        if patient not in patient_dict:
+            patient_dict[patient] = 1
+        else:
+            patient_dict[patient] += 1
 
-    return patient_list
+    return patient_dict
 
 
 def match_patient_count(smaller_folder_pth, larger_folder_img_pth, larger_folder_mask_pth, new_img_folder, new_mask_folder):

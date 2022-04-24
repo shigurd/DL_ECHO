@@ -338,7 +338,7 @@ if __name__ == "__main__":
     #keyfile_csv = r'H:/ML_LVOT/backup_keyfile_and_duplicate/keyfile_GE1424_QC.csv'
     keyfile_csv = 'keyfile_GE1424_QC_no_dcm.csv'
     model_file = 'Mar11_14-43-45_EFFIB2UNETIMGN_DSNT_ADAM_LR5_AL_T-GE1408_HMLHMLAVA_V-NONE_EP30_LR0.003_BS32.pth'
-    data_name = 'GE1408_HMLHMLAVA'
+    data_name = 'GE1408_HMLHMLLVOTALL'
     n_channels = 1
     n_classes = 2
     scaling = 1
@@ -405,6 +405,7 @@ if __name__ == "__main__":
         lvot_plot_all_np = np.zeros((height, width, color))
         lvot_plot_plax_np = np.zeros((height, width, color))
         lvot_plot_zoom_np = np.zeros((height, width, color))
+        lvot_plot_hmhm_np = np.zeros((height, width, color))
 
         ''' reference normalized s and i coordinates '''
         norm_s_y = int((height - 1 - lvot_size_pix) / 2)
@@ -419,6 +420,8 @@ if __name__ == "__main__":
         lvot_plot_plax_np = draw_cross(lvot_plot_plax_np, norm_i_x, norm_i_y, 4, color=[0, 255, 0])
         lvot_plot_zoom_np = draw_cross(lvot_plot_zoom_np, norm_s_x, norm_s_y, 4, color=[0, 255, 0])
         lvot_plot_zoom_np = draw_cross(lvot_plot_zoom_np, norm_i_x, norm_i_y, 4, color=[0, 255, 0])
+        lvot_plot_hmhm_np = draw_cross(lvot_plot_hmhm_np, norm_s_x, norm_s_y, 4, color=[0, 255, 0])
+        lvot_plot_hmhm_np = draw_cross(lvot_plot_hmhm_np, norm_i_x, norm_i_y, 4, color=[0, 255, 0])
 
         ''' matplotlib connected points canvas init '''
         dpi = 96
@@ -521,15 +524,19 @@ if __name__ == "__main__":
 
                 if normalized_lvot_plot == True:
                     lvot_plot_all_np = add_points_to_lvot_plot(true_coordinate_list, pred_coordinate_list, lvot_plot_all_np, norm_s_x, norm_s_y, lvot_size_pix=lvot_size_pix)
+                    fn_tags = fn.rsplit('.', 1)[0].rsplit('_', 4)
 
-                    if fn.rsplit('_', 3)[1] == 'PLAX':
+                    if fn_tags[2] == 'PLAX':
                         lvot_plot_plax_np = add_points_to_lvot_plot(true_coordinate_list, pred_coordinate_list, lvot_plot_plax_np, norm_s_x, norm_s_y, lvot_size_pix=lvot_size_pix)
-                    elif fn.rsplit('_', 3)[1] == 'ZOOM':
+                    elif fn_tags[2] == 'ZOOM':
                         lvot_plot_zoom_np = add_points_to_lvot_plot(true_coordinate_list, pred_coordinate_list, lvot_plot_zoom_np, norm_s_x, norm_s_y, lvot_size_pix=lvot_size_pix)
 
-                    ''' matplotlib pred points and lines '''
-                    pred_i_coordinate_scaled, pred_s_coordinate_scaled = calculate_scaled_points(true_coordinate_list, pred_coordinate_list, lvot_size_pix, norm_s_x, norm_s_y)
-                    plot_point_and_lines_to_canvas([pred_i_coordinate_scaled, pred_s_coordinate_scaled], point_cfg='r,', line_cfg='r-')
+                    if fn_tags[3] != 'ILOW' and fn_tags[4] != 'MLOW':
+                        lvot_plot_hmhm_np = add_points_to_lvot_plot(true_coordinate_list, pred_coordinate_list, lvot_plot_hmhm_np, norm_s_x, norm_s_y, lvot_size_pix=lvot_size_pix)
+
+                        ''' matplotlib pred points and lines for all data '''
+                        pred_i_coordinate_scaled, pred_s_coordinate_scaled = calculate_scaled_points(true_coordinate_list, pred_coordinate_list, lvot_size_pix, norm_s_x, norm_s_y)
+                        plot_point_and_lines_to_canvas([pred_i_coordinate_scaled, pred_s_coordinate_scaled], point_cfg='r,', line_cfg='r-')
 
             else:
                 ''' just save coordinate overlay on original image '''
@@ -592,6 +599,8 @@ if __name__ == "__main__":
                 lvot_plot_plax_pil.save(path.join(predictions_output, 'LVOT_plot_normalized_plax.png'))
                 lvot_plot_zoom_pil = Image.fromarray(lvot_plot_zoom_np.astype(np.uint8))
                 lvot_plot_zoom_pil.save(path.join(predictions_output, 'LVOT_plot_normalized_zoom.png'))
+                lvot_plot_hmhm_pil = Image.fromarray(lvot_plot_hmhm_np.astype(np.uint8))
+                lvot_plot_hmhm_pil.save(path.join(predictions_output, 'LVOT_plot_normalized_hmhm.png'))
 
                 ''' matplotlib gt points and line '''
                 plot_point_and_lines_to_canvas([[norm_i_x, norm_i_y], [norm_s_x, norm_s_y]], point_cfg='g+', line_cfg='g--')
